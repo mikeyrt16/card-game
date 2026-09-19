@@ -1,0 +1,23 @@
+:root {
+  --bg: #14261f;
+  --bg-felt: radial-gradient(ellipse at center, #1c3a2f 0%, #0d1a15 100%);
+  --text: #e8e6df;
+  color-scheme: dark;
+  color: var(--text);
+  background: var(--bg);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  font-family: system-ui, 'Segoe UI', Roboto, sans-serif;
+}
