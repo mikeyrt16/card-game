@@ -22,18 +22,20 @@ export function Deck({ count, onDraw }: DeckProps) {
       : BASE_LAYER_OFFSET_PX;
 
   return (
-    <button
-      type="button"
-      className={styles.deck}
-      onClick={onDraw}
-      aria-label={`Draw a card (${count} remaining)`}
-      style={{ '--layer-offset': `${layerOffset}px` } as CSSProperties}
-    >
-      {Array.from({ length: count }, (_, i) => (
-        <div key={i} className={styles.layer} style={{ '--i': i } as CSSProperties}>
-          <img src={cardBack} alt="" className={styles.layerImage} draggable={false} />
-        </div>
-      ))}
-    </button>
+    <div className={styles.deck}>
+      <button
+        type="button"
+        className={styles.stackButton}
+        onClick={onDraw}
+        aria-label={`Draw a card (${count} remaining)`}
+        style={{ '--layer-offset': `${layerOffset}px` } as CSSProperties}
+      >
+        {Array.from({ length: count }, (_, i) => (
+          <div key={i} className={styles.layer} style={{ '--i': i } as CSSProperties}>
+            <img src={cardBack} alt="" className={styles.layerImage} draggable={false} />
+          </div>
+        ))}
+      </button>
+    </div>
   );
 }

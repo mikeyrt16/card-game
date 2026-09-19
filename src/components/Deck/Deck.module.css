@@ -4,11 +4,16 @@
   bottom: 32px;
   width: 110px;
   aspect-ratio: 250 / 349;
+  z-index: 50;
+}
+
+.stackButton {
+  position: absolute;
+  inset: 0;
   padding: 0;
   border: none;
   background: none;
   cursor: pointer;
-  z-index: 50;
 }
 
 .layer {

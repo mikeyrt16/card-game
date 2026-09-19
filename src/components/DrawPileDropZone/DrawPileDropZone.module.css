@@ -1,0 +1,50 @@
+.dropZone {
+  position: fixed;
+  bottom: 50px;
+  height: '100%';
+  left: 32px;
+  transform: translateY(-50%);
+  width: 240px;
+  aspect-ratio: 250 / 349;
+  display: flex;
+  flex-direction: column;
+  border-radius: 12px;
+  overflow: hidden;
+  background: rgba(255, 255, 255, 0.08);
+  z-index: 40;
+}
+
+.dropBand {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: #fff;
+  background: rgba(255, 255, 255, 0.08);
+  border: 2px dashed rgba(255, 255, 255, 0.5);
+  transition: background 0.15s ease, border-color 0.15s ease;
+}
+
+.dropBand:first-child {
+  border-top-left-radius: 12px;
+  border-top-right-radius: 12px;
+}
+
+.dropBand:last-child {
+  border-bottom-left-radius: 12px;
+  border-bottom-right-radius: 12px;
+}
+
+.dropBand + .dropBand {
+  border-top: none;
+}
+
+.dropBandOver {
+  border-color: #fff;
+  border-style: solid;
+  background: rgba(255, 255, 255, 0.22);
+}
