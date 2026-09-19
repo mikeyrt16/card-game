@@ -1,25 +1,34 @@
 import { useState } from 'react';
+import { Navigate, useParams } from 'react-router-dom';
 import { Deck } from '../components/Deck/Deck';
 import { DrawPileDropZone, type DrawPilePosition } from '../components/DrawPileDropZone/DrawPileDropZone';
 import { DropZone } from '../components/DropZone/DropZone';
 import { PlayerHand } from '../components/PlayerHand/PlayerHand';
-import { ALL_CARDS, pickRandomCards, type CardData } from '../data/cards';
+import type { CardData } from '../data/cards';
+import { buildCharacterDeck, getCharacter, type Character } from '../data/characters';
 import styles from './GameRoute.module.css';
 
-const MIN_CARD_COUNT = 1;
-const DRAW_PILE_SIZE = 30;
-
-function buildDrawPile(size: number): CardData[] {
-  return Array.from({ length: size }, (_, i) => {
-    const base = ALL_CARDS[Math.floor(Math.random() * ALL_CARDS.length)];
-    return { ...base, id: `${base.id}-draw-${i}` };
-  });
-}
+const INITIAL_HAND_SIZE = 5;
 
 export function GameRoute() {
-  const [deck] = useState(() => pickRandomCards(ALL_CARDS.length));
-  const [cardCount, setCardCount] = useState(deck.length);
-  const [drawPile, setDrawPile] = useState(() => buildDrawPile(DRAW_PILE_SIZE));
+  const { characterId } = useParams<{ characterId: string }>();
+  const character = getCharacter(characterId);
+
+  if (!character) {
+    return <Navigate to="/select" replace />;
+  }
+
+  return <Game character={character} />;
+}
+
+interface GameProps {
+  character: Character;
+}
+
+function Game({ character }: GameProps) {
+  const [deck] = useState(() => buildCharacterDeck(character));
+  const [initialHand] = useState(() => deck.slice(0, INITIAL_HAND_SIZE));
+  const [drawPile, setDrawPile] = useState(() => deck.slice(INITIAL_HAND_SIZE));
   const [drawnCards, setDrawnCards] = useState<CardData[]>([]);
   const [playedCard, setPlayedCard] = useState<CardData | null>(null);
   const [isDragActive, setIsDragActive] = useState(false);
@@ -28,11 +37,11 @@ export function GameRoute() {
   const drawPileIds = new Set(drawPile.map((card) => card.id));
   // A card can move hand -> draw pile -> hand again. Once that's happened,
   // its position should come from `drawnCards` (append-ordered, so the most
-  // recent draw lands at the end) rather than its original slot in `deck` —
-  // so exclude it from the `deck` portion entirely once it's been drawn.
+  // recent draw lands at the end) rather than its original slot in
+  // `initialHand` — so exclude it from that portion entirely once drawn.
   const drawnCardIds = new Set(drawnCards.map((card) => card.id));
   const naturalHand = [
-    ...deck.slice(0, cardCount).filter((card) => !drawnCardIds.has(card.id)),
+    ...initialHand.filter((card) => !drawnCardIds.has(card.id)),
     ...drawnCards,
   ].filter((card) => card.id !== playedCard?.id && !drawPileIds.has(card.id));
 
@@ -101,7 +110,7 @@ export function GameRoute() {
         onCardDragEnd={() => setIsDragActive(false)}
         onReorder={(reordered) => setHandOrder(reordered.map((card) => card.id))}
       />
-      <Deck count={drawPile.length} onDraw={handleDraw} />
+      <Deck count={drawPile.length} cardBack={character.cardBack} onDraw={handleDraw} />
       <DrawPileDropZone isDragActive={isDragActive} onDropCard={handleDropOnDrawPile} />
       <DropZone
         playedCard={playedCard}
@@ -109,27 +118,6 @@ export function GameRoute() {
         onDropCard={handleDropCard}
         onRemoveCard={() => setPlayedCard(null)}
       />
-      <div className={styles.cardCountControls}>
-        <button
-          type="button"
-          className={styles.countButton}
-          onClick={() => setCardCount((count) => Math.min(deck.length, count + 1))}
-          disabled={cardCount >= deck.length}
-          aria-label="Increase card count"
-        >
-          ▲
-        </button>
-        <span className={styles.countLabel}>{cardCount}</span>
-        <button
-          type="button"
-          className={styles.countButton}
-          onClick={() => setCardCount((count) => Math.max(MIN_CARD_COUNT, count - 1))}
-          disabled={cardCount <= MIN_CARD_COUNT}
-          aria-label="Decrease card count"
-        >
-          ▼
-        </button>
-      </div>
     </div>
   );
 }

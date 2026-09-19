@@ -1,9 +1,9 @@
 import type { CSSProperties } from 'react';
-import cardBack from '../../assets/card-back/card1.jpeg';
 import styles from './Deck.module.css';
 
 interface DeckProps {
   count: number;
+  cardBack: string;
   onDraw: () => void;
 }
 
@@ -11,7 +11,7 @@ const CARD_WIDTH_PX = 110;
 const MAX_DECK_WIDTH_PX = 1000;
 const BASE_LAYER_OFFSET_PX = 0.5;
 
-export function Deck({ count, onDraw }: DeckProps) {
+export function Deck({ count, cardBack, onDraw }: DeckProps) {
   if (count <= 0) {
     return null;
   }
@@ -23,6 +23,7 @@ export function Deck({ count, onDraw }: DeckProps) {
 
   return (
     <div className={styles.deck}>
+      <span className={styles.count}>{count}</span>
       <button
         type="button"
         className={styles.stackButton}
