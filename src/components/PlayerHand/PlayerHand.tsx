@@ -120,6 +120,24 @@ export function PlayerHand({
   // below without waiting for anything to catch the unmount.
   const effectiveDraggedCardId = draggedCardId && cards.some((c) => c.id === draggedCardId) ? draggedCardId : null;
 
+  // Backstop for the *other* timing outcome of the same unmount-before-
+  // dragend gap: the onDragEnd handler below already force-clears the two
+  // dock-open hover flags when a drop leaves the hand, but only covers the
+  // case where dragend actually fires. When it doesn't (the dropped card's
+  // slot unmounts before the browser gets a chance to dispatch it — see
+  // that handler's own comment), draggedCardId is left stuck at the old
+  // card's id with nothing to ever clear it via the normal path. Detecting
+  // "we were tracking a drag and it just vanished from `cards`" here
+  // catches exactly that case and performs the same cleanup, so the dock
+  // reliably closes either way dragend happens to resolve.
+  useEffect(() => {
+    if (draggedCardId && !effectiveDraggedCardId) {
+      setIsHoveringHandArea(false);
+      setIsHoveringDockZone(false);
+      setDraggedCardId(null);
+    }
+  }, [draggedCardId, effectiveDraggedCardId]);
+
   let displayCards = cards;
   if (effectiveDraggedCardId && isDraggedAway) {
     // e.g. dragging a discard-preview card toward the hand. Hide it here so
@@ -325,6 +343,21 @@ export function PlayerHand({
                   ? () => {
                       setDraggedCardId(null);
                       setDragOverCardId(null);
+                      if (isDraggedAway) {
+                        // The pointer had already left this fan when the drag
+                        // ended (e.g. dropped on the draw/discard pile) — the
+                        // two hover flags behind isDockOpen may be stuck true
+                        // from the same native-drag mouseleave gap noted on
+                        // the cleanup effect above, and since the pointer
+                        // isn't drifting back over the hand there's no future
+                        // mouseenter/mouseleave left to fix it. Force them
+                        // closed here. Skipped when isDraggedAway is false
+                        // (a plain in-hand reorder, pointer still actually
+                        // over the hand) so this doesn't fight a real,
+                        // current hover.
+                        setIsHoveringHandArea(false);
+                        setIsHoveringDockZone(false);
+                      }
                       setIsDraggedAway(false);
                       // handleDragOver sets this true during a purely local
                       // reorder drag too (the pointer never leaves this

@@ -71,6 +71,9 @@ function Game({ state, character, map, send }: GameProps) {
   const [draggedCard, setDraggedCard] = useState<CardData | null>(null);
   const [isViewingDiscard, setIsViewingDiscard] = useState(false);
   const [isViewingDraw, setIsViewingDraw] = useState(false);
+  // A read-only look at the opponent's discard pile — no dragging/reorder,
+  // just the same fanned view.
+  const [isViewingOpponentDiscard, setIsViewingOpponentDiscard] = useState(false);
   // Mirrors the real hand's own auto-hide dock open/closed state (reported
   // via onDockOpenChange), so the map can dim in step with it.
   const [isHandOpen, setIsHandOpen] = useState(false);
@@ -80,7 +83,7 @@ function Game({ state, character, map, send }: GameProps) {
   const [viewingCharacterCard, setViewingCharacterCard] = useState<'me' | 'opponent' | null>(null);
   // Dims the map behind any of the hand/pile fanned-card views, so they
   // read more clearly against it.
-  const isMapDimmed = isHandOpen || isViewingDiscard || isViewingDraw;
+  const isMapDimmed = isHandOpen || isViewingDiscard || isViewingDraw || isViewingOpponentDiscard;
 
   const hand = state.me.hand.map(toClientCard);
   const drawPile = state.me.drawPile.map(toClientCard);
@@ -116,6 +119,12 @@ function Game({ state, character, map, send }: GameProps) {
       setIsViewingDraw(false);
     }
   }, [drawPile.length, isViewingDraw]);
+
+  useEffect(() => {
+    if (opponentDiscardPile.length === 0 && isViewingOpponentDiscard) {
+      setIsViewingOpponentDiscard(false);
+    }
+  }, [opponentDiscardPile.length, isViewingOpponentDiscard]);
 
   const handleDraw = () => send({ type: 'draw' });
   const handleReturnFromDiscard = () => send({ type: 'returnFromDiscard' });
@@ -179,14 +188,21 @@ function Game({ state, character, map, send }: GameProps) {
         onClick={() => {}}
         disabled
       />
-      <CardPile
-        count={opponentDiscardPile.length}
-        image={opponentDiscardPile[0]?.image ?? ''}
-        ariaLabel={`Opponent's discard pile (${opponentDiscardPile.length} cards)`}
-        placement="opponent-discard"
-        onClick={() => {}}
-        disabled
-      />
+      {!isViewingOpponentDiscard && (
+        <CardPile
+          count={opponentDiscardPile.length}
+          image={opponentDiscardPile[0]?.image ?? ''}
+          ariaLabel={`Opponent's discard pile (${opponentDiscardPile.length} cards)`}
+          placement="opponent-discard"
+          onClick={() => {}}
+          disabled
+          onView={() => {
+            setIsViewingOpponentDiscard(true);
+            setIsViewingDiscard(false);
+            setIsViewingDraw(false);
+          }}
+        />
+      )}
       {opponentCharacter && (
         <InfoButton
           placement="opponent"
@@ -197,8 +213,8 @@ function Game({ state, character, map, send }: GameProps) {
       )}
       <PlayerHand
         cards={hand}
-        interactive={!isViewingDiscard && !isViewingDraw}
-        forceOpen={isViewingDiscard || isViewingDraw}
+        interactive={!isViewingDiscard && !isViewingDraw && !isViewingOpponentDiscard}
+        forceOpen={isViewingDiscard || isViewingDraw || isViewingOpponentDiscard}
         onDockOpenChange={setIsHandOpen}
         incomingCard={draggedCard && !hand.some((c) => c.id === draggedCard.id) ? draggedCard : undefined}
         onCardDragStart={(card) => {
@@ -219,10 +235,11 @@ function Game({ state, character, map, send }: GameProps) {
           ariaLabel={`Draw a card (${state.me.drawPileCount} remaining)`}
           placement="draw"
           onClick={handleDraw}
-          disabled={isViewingDiscard}
+          disabled={isViewingDiscard || isViewingOpponentDiscard}
           onView={() => {
             setIsViewingDraw(true);
             setIsViewingDiscard(false);
+            setIsViewingOpponentDiscard(false);
           }}
           onShuffle={() => setShuffleConfirm('draw')}
         />
@@ -234,10 +251,11 @@ function Game({ state, character, map, send }: GameProps) {
           ariaLabel={`Return top discarded card to your hand (${discardPile.length} in discard pile)`}
           placement="discard"
           onClick={handleReturnFromDiscard}
-          disabled={isViewingDraw}
+          disabled={isViewingDraw || isViewingOpponentDiscard}
           onView={() => {
             setIsViewingDiscard(true);
             setIsViewingDraw(false);
+            setIsViewingOpponentDiscard(false);
           }}
           onShuffle={() => setShuffleConfirm('discard')}
         />
@@ -307,6 +325,13 @@ function Game({ state, character, map, send }: GameProps) {
               send({ type: 'reorderDiscard', order: [...reordered].reverse().map((card) => card.id) })
             }
           />
+        </div>
+      )}
+      {isViewingOpponentDiscard && (
+        <div className={styles.pilePreview} onClick={() => setIsViewingOpponentDiscard(false)}>
+          {/* Read-only — interactive=false and no drag/reorder handlers, so
+              nothing can be picked up, reordered, or dragged out of it. */}
+          <PlayerHand cards={[...opponentDiscardPile].reverse()} variant="preview" interactive={false} />
         </div>
       )}
       {shuffleConfirm && (

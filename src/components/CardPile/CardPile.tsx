@@ -10,8 +10,9 @@ interface CardPileProps {
   /** Blocks the click-to-draw button only — a separate PileDropZone handles
    *  drag-and-drop onto this pile and isn't affected by this. */
   disabled?: boolean;
-  /** When provided (with onShuffle), hovering the pile for a beat reveals a
-   *  small View/Shuffle menu above it. */
+  /** When either is provided, hovering the pile for a beat reveals a small
+   *  menu above it with just the button(s) whose handler was given — e.g.
+   *  View alone for a read-only look at someone else's pile. */
   onView?: () => void;
   onShuffle?: () => void;
 }
@@ -47,7 +48,7 @@ export function CardPile({
     return null;
   }
 
-  const hasMenu = Boolean(onView && onShuffle);
+  const hasMenu = Boolean(onView || onShuffle);
 
   const layerOffset =
     count > 1
@@ -88,26 +89,30 @@ export function CardPile({
               otherwise it crosses empty space and mouseleave fires first. */}
           <div className={styles.bridge} />
           <div className={styles.menu}>
-            <button
-              type="button"
-              className={styles.menuButton}
-              onClick={() => {
-                setIsMenuOpen(false);
-                onView?.();
-              }}
-            >
-              View
-            </button>
-            <button
-              type="button"
-              className={styles.menuButton}
-              onClick={() => {
-                setIsMenuOpen(false);
-                onShuffle?.();
-              }}
-            >
-              Shuffle
-            </button>
+            {onView && (
+              <button
+                type="button"
+                className={styles.menuButton}
+                onClick={() => {
+                  setIsMenuOpen(false);
+                  onView();
+                }}
+              >
+                View
+              </button>
+            )}
+            {onShuffle && (
+              <button
+                type="button"
+                className={styles.menuButton}
+                onClick={() => {
+                  setIsMenuOpen(false);
+                  onShuffle();
+                }}
+              >
+                Shuffle
+              </button>
+            )}
           </div>
         </>
       )}
