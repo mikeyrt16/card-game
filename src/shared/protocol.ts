@@ -25,6 +25,15 @@ export interface CoinState {
   draggedBy: PlayerSlot | null;
 }
 
+/** One player's coins — a single main coin plus however many minion coins
+ *  their chosen character has (see `CharacterDef.minionCount`). Minions are
+ *  an array rather than a fixed shape since that count varies by character;
+ *  a minion coin is identified by its index into this array. */
+export interface PlayerCoins {
+  main: CoinState;
+  minions: CoinState[];
+}
+
 /** A single card instance as it travels over the wire: identifies the card
  *  definition (character + slug) rather than a resolved image URL, since
  *  the server has no knowledge of Vite-bundled asset paths. */
@@ -72,12 +81,15 @@ export type GameAction =
    *  transitions; not gated by the current phase. */
   | { type: 'returnToMainMenu' }
   /** Any player can pick up any coin — a no-op if someone else already
-   *  has it. coinOwner identifies *whose* coin it is, not who's dragging it. */
-  | { type: 'startDragCoin'; coinOwner: PlayerSlot; coinType: CoinType }
+   *  has it. coinOwner identifies *whose* coin it is, not who's dragging it.
+   *  minionIndex selects which minion coin when coinType is 'minion'
+   *  (ignored for 'main', which has exactly one instance); omitted defaults
+   *  to index 0. */
+  | { type: 'startDragCoin'; coinOwner: PlayerSlot; coinType: CoinType; minionIndex?: number }
   /** Only honored from whoever currently holds the coin (per draggedBy);
    *  sent continuously (rate-limited client-side) while dragging. */
-  | { type: 'moveCoin'; coinOwner: PlayerSlot; coinType: CoinType; x: number; y: number }
-  | { type: 'endDragCoin'; coinOwner: PlayerSlot; coinType: CoinType };
+  | { type: 'moveCoin'; coinOwner: PlayerSlot; coinType: CoinType; minionIndex?: number; x: number; y: number }
+  | { type: 'endDragCoin'; coinOwner: PlayerSlot; coinType: CoinType; minionIndex?: number };
 
 export type ClientAction = HelloMessage | GameAction;
 
@@ -102,7 +114,7 @@ export interface GameStateView {
   selectedMapId: string | null;
   /** Fully public/shared — both players always see every coin's real
    *  position and drag state, identically. */
-  coins: Record<PlayerSlot, Record<CoinType, CoinState>>;
+  coins: Record<PlayerSlot, PlayerCoins>;
   /** The receiving player's own board — hand and the draw pile's actual
    *  contents are only ever sent to their owner, for a deliberate "look
    *  through your deck" view; the opponent's stay hidden as counts. */

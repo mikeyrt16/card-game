@@ -1,10 +1,45 @@
 import { Fragment, useEffect, useRef, useState, type CSSProperties, type PointerEvent as ReactPointerEvent } from 'react';
 import { getCoinImage } from '../../data/assets';
-import type { CoinState, CoinType, PlayerSlot } from '../../shared/protocol';
+import type { CoinState, CoinType, PlayerCoins, PlayerSlot } from '../../shared/protocol';
 import styles from './Map.module.css';
 
 const SLOTS: PlayerSlot[] = ['player1', 'player2'];
-const COIN_TYPES: CoinType[] = ['main', 'minion'];
+
+/** Each character's particle fountain is tinted to match them, rather than
+ *  a fixed ally/enemy palette — so it reads as "this is Medusa's fountain"
+ *  regardless of which player is controlling her. Falls back to the
+ *  original gold if an unknown characterId ever slips through. */
+const CHARACTER_PARTICLE_COLORS: Record<string, string> = {
+  medusa: '#6FCF52',
+  arthur: '#FF6F5E',
+  alice: '#4FC3FF',
+  sinbad: '#F7932D',
+};
+const DEFAULT_PARTICLE_COLOR = '#FFD54A';
+
+function hexToRgb(hex: string): [number, number, number] {
+  const value = parseInt(hex.slice(1), 16);
+  return [(value >> 16) & 255, (value >> 8) & 255, value & 255];
+}
+
+/** Derives the particle gradient's three stops from one character color:
+ *  a near-white core (particles read as glowing hot at their center,
+ *  whatever the hue), the character color itself as the mid stop, and a
+ *  fully-transparent version of it for the fade-out edge. */
+function buildParticlePalette(characterId: string | null): { core: string; mid: string; fade: string } {
+  const hex = (characterId && CHARACTER_PARTICLE_COLORS[characterId]) || DEFAULT_PARTICLE_COLOR;
+  const [r, g, b] = hexToRgb(hex);
+  const core = `rgb(${Math.round(r + (255 - r) * 0.8)}, ${Math.round(g + (255 - g) * 0.8)}, ${Math.round(b + (255 - b) * 0.8)})`;
+  return { core, mid: hex, fade: `rgba(${r}, ${g}, ${b}, 0)` };
+}
+
+/** The "picked up" glow's color, as a space-separated "R G B" triple for
+ *  CSS's `rgb(var(--glow-rgb) / <alpha>)` syntax — same source color as
+ *  that character's particle fountain (buildParticlePalette's `mid`). */
+function characterGlowRgb(characterId: string | null): string {
+  const hex = (characterId && CHARACTER_PARTICLE_COLORS[characterId]) || DEFAULT_PARTICLE_COLOR;
+  return hexToRgb(hex).join(' ');
+}
 
 /** Per-coin-type fountain tuning. Minion coins are visually smaller (76px
  *  vs. main's 101px, ~75% the size), so an equally-intense fountain would
@@ -84,8 +119,20 @@ const PARTICLES_BY_COIN_TYPE: Record<CoinType, CSSProperties[]> = {
 interface LocalDrag {
   owner: PlayerSlot;
   coinType: CoinType;
+  /** Which minion coin, when coinType is 'minion' — undefined for 'main',
+   *  which has exactly one instance. */
+  minionIndex: number | undefined;
   x: number;
   y: number;
+}
+
+function sameCoin(
+  a: LocalDrag | null,
+  owner: PlayerSlot,
+  coinType: CoinType,
+  minionIndex: number | undefined,
+): a is LocalDrag {
+  return a !== null && a.owner === owner && a.coinType === coinType && a.minionIndex === minionIndex;
 }
 
 interface Size {
@@ -138,18 +185,19 @@ function containerPxToImagePercent(
 interface MapProps {
   image: string;
   dimmed: boolean;
-  coins: Record<PlayerSlot, Record<CoinType, CoinState>>;
+  coins: Record<PlayerSlot, PlayerCoins>;
   mySlot: PlayerSlot;
   /** Which character each slot picked — null for a slot that hasn't (in
    *  practice always set once phase is 'playing', but guarded regardless). */
   characterIds: Record<PlayerSlot, string | null>;
-  onCoinDragStart: (owner: PlayerSlot, coinType: CoinType) => void;
-  onCoinMove: (owner: PlayerSlot, coinType: CoinType, x: number, y: number) => void;
-  onCoinDragEnd: (owner: PlayerSlot, coinType: CoinType) => void;
+  onCoinDragStart: (owner: PlayerSlot, coinType: CoinType, minionIndex: number | undefined) => void;
+  onCoinMove: (owner: PlayerSlot, coinType: CoinType, minionIndex: number | undefined, x: number, y: number) => void;
+  onCoinDragEnd: (owner: PlayerSlot, coinType: CoinType, minionIndex: number | undefined) => void;
 }
 
 /** The game board: the map art itself, plus (increasingly) whatever lives on
- *  top of it — for now, each player's draggable main/minion coins. */
+ *  top of it — for now, each player's draggable main coin and however many
+ *  minion coins their character has. */
 export function Map({ image, dimmed, coins, mySlot, characterIds, onCoinDragStart, onCoinMove, onCoinDragEnd }: MapProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const imgRef = useRef<HTMLImageElement>(null);
@@ -212,11 +260,11 @@ export function Map({ image, dimmed, coins, mySlot, characterIds, onCoinDragStar
     rafRef.current = null;
     const pending = pendingMoveRef.current;
     if (pending) {
-      onCoinMove(pending.owner, pending.coinType, pending.x, pending.y);
+      onCoinMove(pending.owner, pending.coinType, pending.minionIndex, pending.x, pending.y);
     }
   };
 
-  const handlePointerDown = (owner: PlayerSlot, coinType: CoinType, coin: CoinState) => (
+  const handlePointerDown = (owner: PlayerSlot, coinType: CoinType, minionIndex: number | undefined, coin: CoinState) => (
     e: ReactPointerEvent<HTMLButtonElement>,
   ) => {
     if (coin.draggedBy && coin.draggedBy !== mySlot) {
@@ -225,19 +273,21 @@ export function Map({ image, dimmed, coins, mySlot, characterIds, onCoinDragStar
     }
     e.currentTarget.setPointerCapture(e.pointerId);
     const point = toImagePercent(e.clientX, e.clientY) ?? { x: coin.x, y: coin.y };
-    setLocalDrag({ owner, coinType, ...point });
-    onCoinDragStart(owner, coinType);
+    setLocalDrag({ owner, coinType, minionIndex, ...point });
+    onCoinDragStart(owner, coinType, minionIndex);
   };
 
-  const handlePointerMove = (owner: PlayerSlot, coinType: CoinType) => (e: ReactPointerEvent<HTMLButtonElement>) => {
-    if (!localDrag || localDrag.owner !== owner || localDrag.coinType !== coinType) {
+  const handlePointerMove = (owner: PlayerSlot, coinType: CoinType, minionIndex: number | undefined) => (
+    e: ReactPointerEvent<HTMLButtonElement>,
+  ) => {
+    if (!sameCoin(localDrag, owner, coinType, minionIndex)) {
       return;
     }
     const point = toImagePercent(e.clientX, e.clientY);
     if (!point) {
       return;
     }
-    const next = { owner, coinType, ...point };
+    const next = { owner, coinType, minionIndex, ...point };
     setLocalDrag(next);
     pendingMoveRef.current = next;
     if (rafRef.current === null) {
@@ -245,8 +295,10 @@ export function Map({ image, dimmed, coins, mySlot, characterIds, onCoinDragStar
     }
   };
 
-  const endLocalDrag = (owner: PlayerSlot, coinType: CoinType) => (e: ReactPointerEvent<HTMLButtonElement>) => {
-    if (!localDrag || localDrag.owner !== owner || localDrag.coinType !== coinType) {
+  const endLocalDrag = (owner: PlayerSlot, coinType: CoinType, minionIndex: number | undefined) => (
+    e: ReactPointerEvent<HTMLButtonElement>,
+  ) => {
+    if (!sameCoin(localDrag, owner, coinType, minionIndex)) {
       return;
     }
     e.currentTarget.releasePointerCapture(e.pointerId);
@@ -256,7 +308,7 @@ export function Map({ image, dimmed, coins, mySlot, characterIds, onCoinDragStar
     }
     pendingMoveRef.current = null;
     setLocalDrag(null);
-    onCoinDragEnd(owner, coinType);
+    onCoinDragEnd(owner, coinType, minionIndex);
   };
 
   return (
@@ -273,25 +325,44 @@ export function Map({ image, dimmed, coins, mySlot, characterIds, onCoinDragStar
         }}
       />
       {geometry &&
-        SLOTS.map((owner) =>
-          COIN_TYPES.map((coinType) => {
-            const characterId = characterIds[owner];
-            if (!characterId) {
-              return null;
-            }
-            const coin = coins[owner][coinType];
-            const isLocallyDragging = localDrag?.owner === owner && localDrag.coinType === coinType;
-            const position = isLocallyDragging ? localDrag : coin;
+        SLOTS.map((owner) => {
+          const characterId = characterIds[owner];
+          if (!characterId) {
+            return null;
+          }
+          const playerCoins = coins[owner];
+          const particlePalette = buildParticlePalette(characterId);
+          const glowRgb = characterGlowRgb(characterId);
+          // One entry for the main coin, then one per minion coin — however
+          // many that character has (see CharacterDef.minionCount) — so a
+          // single list drives the render below regardless of count.
+          const coinEntries: { coinType: CoinType; minionIndex: number | undefined; coin: CoinState }[] = [
+            { coinType: 'main', minionIndex: undefined, coin: playerCoins.main },
+            ...playerCoins.minions.map((coin, minionIndex) => ({ coinType: 'minion' as const, minionIndex, coin })),
+          ];
+
+          return coinEntries.map(({ coinType, minionIndex, coin }) => {
+            const position = sameCoin(localDrag, owner, coinType, minionIndex) ? localDrag : coin;
             const { x: pxX, y: pxY } = imagePercentToContainerPx(position.x, position.y, geometry);
             const isGlowing = Boolean(coin.draggedBy);
             const isGrabbable = !coin.draggedBy || coin.draggedBy === mySlot;
             const ownerLabel = owner === mySlot ? 'Your' : "Opponent's";
+            const coinLabel =
+              minionIndex !== undefined && playerCoins.minions.length > 1 ? `minion ${minionIndex + 1}` : coinType;
 
             return (
-              <Fragment key={`${owner}-${coinType}`}>
+              <Fragment key={`${owner}-${coinType}-${minionIndex ?? 0}`}>
                 <div
-                  className={`${styles.particleField} ${owner === mySlot ? styles.particleFieldAlly : styles.particleFieldEnemy}`}
-                  style={{ left: `${pxX}px`, top: `${pxY}px` }}
+                  className={styles.particleField}
+                  style={
+                    {
+                      left: `${pxX}px`,
+                      top: `${pxY}px`,
+                      '--particle-core': particlePalette.core,
+                      '--particle-mid': particlePalette.mid,
+                      '--particle-fade': particlePalette.fade,
+                    } as CSSProperties
+                  }
                   aria-hidden="true"
                 >
                   {PARTICLES_BY_COIN_TYPE[coinType].map((particleStyle, i) => (
@@ -307,12 +378,19 @@ export function Map({ image, dimmed, coins, mySlot, characterIds, onCoinDragStar
                   ]
                     .filter(Boolean)
                     .join(' ')}
-                  style={{ left: `${pxX}px`, top: `${pxY}px`, cursor: isGrabbable ? 'grab' : 'default' }}
-                  onPointerDown={handlePointerDown(owner, coinType, coin)}
-                  onPointerMove={handlePointerMove(owner, coinType)}
-                  onPointerUp={endLocalDrag(owner, coinType)}
-                  onPointerCancel={endLocalDrag(owner, coinType)}
-                  aria-label={`${ownerLabel} ${coinType} coin`}
+                  style={
+                    {
+                      left: `${pxX}px`,
+                      top: `${pxY}px`,
+                      cursor: isGrabbable ? 'grab' : 'default',
+                      '--glow-rgb': glowRgb,
+                    } as CSSProperties
+                  }
+                  onPointerDown={handlePointerDown(owner, coinType, minionIndex, coin)}
+                  onPointerMove={handlePointerMove(owner, coinType, minionIndex)}
+                  onPointerUp={endLocalDrag(owner, coinType, minionIndex)}
+                  onPointerCancel={endLocalDrag(owner, coinType, minionIndex)}
+                  aria-label={`${ownerLabel} ${coinLabel} coin`}
                 >
                   <img
                     src={getCoinImage(characterId, coinType)}
@@ -323,8 +401,8 @@ export function Map({ image, dimmed, coins, mySlot, characterIds, onCoinDragStar
                 </button>
               </Fragment>
             );
-          }),
-        )}
+          });
+        })}
     </div>
   );
 }

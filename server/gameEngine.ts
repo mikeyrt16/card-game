@@ -6,6 +6,7 @@ import type {
   GamePhase,
   GameStateView,
   PilePosition,
+  PlayerCoins,
   PlayerSlot,
   WireCard,
 } from '../src/shared/protocol';
@@ -25,7 +26,7 @@ interface ServerPlayerState {
 export interface GameState {
   phase: GamePhase;
   selectedMapId: string | null;
-  coins: Record<PlayerSlot, Record<CoinType, CoinState>>;
+  coins: Record<PlayerSlot, PlayerCoins>;
   players: Record<PlayerSlot, ServerPlayerState>;
 }
 
@@ -43,16 +44,27 @@ export function createEmptyPlayer(): ServerPlayerState {
 
 /** Player1's coins start on the left, player2's on the right — deterministic
  *  by slot, since there's no other basis to assign sides from. */
-function createInitialCoins(): Record<PlayerSlot, Record<CoinType, CoinState>> {
+function coinXForSlot(slot: PlayerSlot): number {
+  return slot === 'player1' ? 15 : 85;
+}
+
+/** Lays out `count` minion coins stacked vertically, centered on the same
+ *  spot the single minion coin used to occupy — so one minion looks
+ *  identical to before, and more minions fan out from that same center
+ *  rather than needing separate per-count layouts. */
+function createMinionCoins(x: number, count: number): CoinState[] {
+  const spacing = 10;
+  const startY = 58 - ((count - 1) * spacing) / 2;
+  return Array.from({ length: count }, (_, i) => ({ x, y: startY + i * spacing, draggedBy: null }));
+}
+
+/** Minion count isn't known yet at this point (no character picked) — every
+ *  slot starts with a single minion coin, then `selectCharacter` resizes it
+ *  to match whatever the chosen character calls for. */
+function createInitialCoins(): Record<PlayerSlot, PlayerCoins> {
   return {
-    player1: {
-      main: { x: 15, y: 45, draggedBy: null },
-      minion: { x: 15, y: 58, draggedBy: null },
-    },
-    player2: {
-      main: { x: 85, y: 45, draggedBy: null },
-      minion: { x: 85, y: 58, draggedBy: null },
-    },
+    player1: { main: { x: coinXForSlot('player1'), y: 45, draggedBy: null }, minions: createMinionCoins(coinXForSlot('player1'), 1) },
+    player2: { main: { x: coinXForSlot('player2'), y: 45, draggedBy: null }, minions: createMinionCoins(coinXForSlot('player2'), 1) },
   };
 }
 
@@ -149,6 +161,12 @@ function selectCharacter(state: GameState, slot: PlayerSlot, characterId: string
   player.drawPile = deck.slice(INITIAL_HAND_SIZE);
   player.discardPile = [];
   player.playedCard = null;
+  // Different characters field different numbers of minions — resize this
+  // slot's minion coins to match, now that the character (and therefore
+  // the count) is known. Re-centers on the same spot regardless of count,
+  // so this is safe to redo on every re-pick during character-select.
+  const minionCount = getCharacterDef(characterId)?.minionCount ?? 1;
+  state.coins[slot].minions = createMinionCoins(coinXForSlot(slot), minionCount);
 }
 
 function draw(player: ServerPlayerState): void {
@@ -260,8 +278,32 @@ function returnToMainMenu(state: GameState): void {
   resetPlayerToCharacterSelect(state.players.player2);
 }
 
-function startDragCoin(state: GameState, actorSlot: PlayerSlot, coinOwner: PlayerSlot, coinType: CoinType): void {
-  const coin = state.coins[coinOwner][coinType];
+/** Resolves the specific coin a (coinType, minionIndex) pair refers to —
+ *  'main' has exactly one instance; 'minion' is looked up by index into
+ *  that slot's (character-sized) minions array. Undefined if the index is
+ *  out of range, e.g. a stale minionIndex from before a character re-pick
+ *  shrank the array. */
+function resolveCoin(
+  state: GameState,
+  owner: PlayerSlot,
+  coinType: CoinType,
+  minionIndex: number | undefined,
+): CoinState | undefined {
+  const playerCoins = state.coins[owner];
+  return coinType === 'main' ? playerCoins.main : playerCoins.minions[minionIndex ?? 0];
+}
+
+function startDragCoin(
+  state: GameState,
+  actorSlot: PlayerSlot,
+  coinOwner: PlayerSlot,
+  coinType: CoinType,
+  minionIndex: number | undefined,
+): void {
+  const coin = resolveCoin(state, coinOwner, coinType, minionIndex);
+  if (!coin) {
+    return;
+  }
   if (coin.draggedBy && coin.draggedBy !== actorSlot) {
     // Someone else already has it.
     return;
@@ -274,11 +316,12 @@ function moveCoin(
   actorSlot: PlayerSlot,
   coinOwner: PlayerSlot,
   coinType: CoinType,
+  minionIndex: number | undefined,
   x: number,
   y: number,
 ): void {
-  const coin = state.coins[coinOwner][coinType];
-  if (coin.draggedBy !== actorSlot) {
+  const coin = resolveCoin(state, coinOwner, coinType, minionIndex);
+  if (!coin || coin.draggedBy !== actorSlot) {
     // Not currently yours to move — ignore (e.g. a stale/out-of-order message).
     return;
   }
@@ -286,9 +329,15 @@ function moveCoin(
   coin.y = Math.max(0, Math.min(100, y));
 }
 
-function endDragCoin(state: GameState, actorSlot: PlayerSlot, coinOwner: PlayerSlot, coinType: CoinType): void {
-  const coin = state.coins[coinOwner][coinType];
-  if (coin.draggedBy === actorSlot) {
+function endDragCoin(
+  state: GameState,
+  actorSlot: PlayerSlot,
+  coinOwner: PlayerSlot,
+  coinType: CoinType,
+  minionIndex: number | undefined,
+): void {
+  const coin = resolveCoin(state, coinOwner, coinType, minionIndex);
+  if (coin?.draggedBy === actorSlot) {
     coin.draggedBy = null;
   }
 }
@@ -348,13 +397,13 @@ export function applyAction(state: GameState, slot: PlayerSlot, action: GameActi
       returnToMainMenu(state);
       return;
     case 'startDragCoin':
-      startDragCoin(state, slot, action.coinOwner, action.coinType);
+      startDragCoin(state, slot, action.coinOwner, action.coinType, action.minionIndex);
       return;
     case 'moveCoin':
-      moveCoin(state, slot, action.coinOwner, action.coinType, action.x, action.y);
+      moveCoin(state, slot, action.coinOwner, action.coinType, action.minionIndex, action.x, action.y);
       return;
     case 'endDragCoin':
-      endDragCoin(state, slot, action.coinOwner, action.coinType);
+      endDragCoin(state, slot, action.coinOwner, action.coinType, action.minionIndex);
       return;
   }
 }

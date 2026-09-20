@@ -171,9 +171,15 @@ function Game({ state, character, map, send }: GameProps) {
           coins={state.coins}
           mySlot={state.mySlot}
           characterIds={characterIds}
-          onCoinDragStart={(owner, coinType) => send({ type: 'startDragCoin', coinOwner: owner, coinType })}
-          onCoinMove={(owner, coinType, x, y) => send({ type: 'moveCoin', coinOwner: owner, coinType, x, y })}
-          onCoinDragEnd={(owner, coinType) => send({ type: 'endDragCoin', coinOwner: owner, coinType })}
+          onCoinDragStart={(owner, coinType, minionIndex) =>
+            send({ type: 'startDragCoin', coinOwner: owner, coinType, minionIndex })
+          }
+          onCoinMove={(owner, coinType, minionIndex, x, y) =>
+            send({ type: 'moveCoin', coinOwner: owner, coinType, minionIndex, x, y })
+          }
+          onCoinDragEnd={(owner, coinType, minionIndex) =>
+            send({ type: 'endDragCoin', coinOwner: owner, coinType, minionIndex })
+          }
         />
       )}
       <GameMenu onReturnToMainMenu={() => send({ type: 'returnToMainMenu' })} />
