@@ -46,6 +46,12 @@ function Game({ character }: GameProps) {
   const [isDragActive, setIsDragActive] = useState(false);
   const [handOrder, setHandOrder] = useState<string[]>([]);
   const [isViewingDiscard, setIsViewingDiscard] = useState(false);
+  // The actual card currently being dragged, from either hand — lets the
+  // real hand show a live "where this would land" preview for a card
+  // dragged in from the discard-pile preview (dataTransfer's payload isn't
+  // readable during dragover/dragenter, only at drop, so this has to be
+  // tracked as real state rather than read off the native drag event).
+  const [draggedCard, setDraggedCard] = useState<CardData | null>(null);
 
   const drawPileIds = new Set(drawPile.map((card) => card.id));
   const discardPileIds = new Set(discardPile.map((card) => card.id));
@@ -96,6 +102,7 @@ function Game({ character }: GameProps) {
     // The dropped card's hand slot unmounts immediately, so its native
     // dragend never fires — reset the drag-active flag here instead.
     setIsDragActive(false);
+    setDraggedCard(null);
     if (playedCard) {
       return;
     }
@@ -112,6 +119,7 @@ function Game({ character }: GameProps) {
 
   const handleDropOnDrawPile = (cardId: string, position: PilePosition) => {
     setIsDragActive(false);
+    setDraggedCard(null);
     const card = findDraggableCard(cardId);
     if (!card) {
       return;
@@ -130,6 +138,7 @@ function Game({ character }: GameProps) {
 
   const handleDropOnDiscardPile = (cardId: string, position: PilePosition) => {
     setIsDragActive(false);
+    setDraggedCard(null);
     const card = findDraggableCard(cardId);
     if (!card) {
       return;
@@ -142,6 +151,7 @@ function Game({ character }: GameProps) {
 
   const handleDropOntoHand = (cardId: string) => {
     setIsDragActive(false);
+    setDraggedCard(null);
     if (hand.some((c) => c.id === cardId)) {
       // Already in hand — this is just the normal in-fan reorder drop,
       // already applied live via onReorder while dragging.
@@ -167,8 +177,15 @@ function Game({ character }: GameProps) {
       <PlayerHand
         cards={hand}
         interactive={!isViewingDiscard}
-        onCardDragStart={() => setIsDragActive(true)}
-        onCardDragEnd={() => setIsDragActive(false)}
+        incomingCard={draggedCard && !hand.some((c) => c.id === draggedCard.id) ? draggedCard : undefined}
+        onCardDragStart={(card) => {
+          setIsDragActive(true);
+          setDraggedCard(card);
+        }}
+        onCardDragEnd={() => {
+          setIsDragActive(false);
+          setDraggedCard(null);
+        }}
         onReorder={(reordered) => setHandOrder(reordered.map((card) => card.id))}
         onExternalDrop={handleDropOntoHand}
       />
@@ -213,8 +230,14 @@ function Game({ character }: GameProps) {
           <PlayerHand
             cards={[...discardPile].reverse()}
             variant="preview"
-            onCardDragStart={() => setIsDragActive(true)}
-            onCardDragEnd={() => setIsDragActive(false)}
+            onCardDragStart={(card) => {
+              setIsDragActive(true);
+              setDraggedCard(card);
+            }}
+            onCardDragEnd={() => {
+              setIsDragActive(false);
+              setDraggedCard(null);
+            }}
             onReorder={(reordered) => setDiscardPile([...reordered].reverse())}
           />
         </div>
