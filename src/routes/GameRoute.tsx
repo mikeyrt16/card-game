@@ -5,6 +5,7 @@ import { PileDropZone, type PilePosition } from '../components/PileDropZone/Pile
 import { DropZone } from '../components/DropZone/DropZone';
 import { PlayerHand } from '../components/PlayerHand/PlayerHand';
 import { OpponentPanel } from '../components/OpponentPanel/OpponentPanel';
+import { ConfirmDialog } from '../components/ConfirmDialog/ConfirmDialog';
 import { toClientCard, type CardData } from '../data/cards';
 import { getCharacter, type Character } from '../data/characters';
 import { useGameConnection } from '../net/GameConnectionProvider';
@@ -65,6 +66,8 @@ function Game({ state, character, send }: GameProps) {
   const [draggedCard, setDraggedCard] = useState<CardData | null>(null);
   const [isViewingDiscard, setIsViewingDiscard] = useState(false);
   const [isViewingDraw, setIsViewingDraw] = useState(false);
+  // Which pile's shuffle is pending confirmation, if any.
+  const [shuffleConfirm, setShuffleConfirm] = useState<'draw' | 'discard' | null>(null);
 
   const hand = state.me.hand.map(toClientCard);
   const drawPile = state.me.drawPile.map(toClientCard);
@@ -164,7 +167,7 @@ function Game({ state, character, send }: GameProps) {
             setIsViewingDraw(true);
             setIsViewingDiscard(false);
           }}
-          onShuffle={handleShuffleDrawPile}
+          onShuffle={() => setShuffleConfirm('draw')}
         />
       )}
       {!isViewingDiscard && (
@@ -179,7 +182,7 @@ function Game({ state, character, send }: GameProps) {
             setIsViewingDiscard(true);
             setIsViewingDraw(false);
           }}
-          onShuffle={handleShuffleDiscardPile}
+          onShuffle={() => setShuffleConfirm('discard')}
         />
       )}
       <PileDropZone
@@ -242,6 +245,21 @@ function Game({ state, character, send }: GameProps) {
             }
           />
         </div>
+      )}
+      {shuffleConfirm && (
+        <ConfirmDialog
+          message={`Shuffle the ${shuffleConfirm === 'draw' ? 'deck' : 'discard pile'}?`}
+          confirmLabel="Shuffle"
+          onConfirm={() => {
+            if (shuffleConfirm === 'draw') {
+              handleShuffleDrawPile();
+            } else {
+              handleShuffleDiscardPile();
+            }
+            setShuffleConfirm(null);
+          }}
+          onCancel={() => setShuffleConfirm(null)}
+        />
       )}
     </div>
   );

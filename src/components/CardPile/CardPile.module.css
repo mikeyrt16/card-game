@@ -1,6 +1,6 @@
 .pile {
   position: fixed;
-  bottom: 32px;
+  bottom: 20px;
   width: 110px;
   aspect-ratio: 250 / 349;
   z-index: 50;
@@ -53,7 +53,6 @@
 
 .placementDiscard {
   left: 162px;
-  bottom: 20px;
 }
 
 .count {
