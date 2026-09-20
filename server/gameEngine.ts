@@ -52,19 +52,26 @@ function coinXForSlot(slot: PlayerSlot): number {
  *  spot the single minion coin used to occupy — so one minion looks
  *  identical to before, and more minions fan out from that same center
  *  rather than needing separate per-count layouts. */
-function createMinionCoins(x: number, count: number): CoinState[] {
+function createMinionCoins(x: number, count: number, health: number): CoinState[] {
   const spacing = 10;
   const startY = 58 - ((count - 1) * spacing) / 2;
-  return Array.from({ length: count }, (_, i) => ({ x, y: startY + i * spacing, draggedBy: null }));
+  return Array.from({ length: count }, (_, i) => ({ x, y: startY + i * spacing, draggedBy: null, health }));
 }
 
-/** Minion count isn't known yet at this point (no character picked) — every
- *  slot starts with a single minion coin, then `selectCharacter` resizes it
- *  to match whatever the chosen character calls for. */
+/** Neither minion count nor health is known yet at this point (no character
+ *  picked) — every slot starts with a single, placeholder-health minion,
+ *  then `selectCharacter` resizes/re-heals it to match whatever character
+ *  gets chosen. */
 function createInitialCoins(): Record<PlayerSlot, PlayerCoins> {
   return {
-    player1: { main: { x: coinXForSlot('player1'), y: 45, draggedBy: null }, minions: createMinionCoins(coinXForSlot('player1'), 1) },
-    player2: { main: { x: coinXForSlot('player2'), y: 45, draggedBy: null }, minions: createMinionCoins(coinXForSlot('player2'), 1) },
+    player1: {
+      main: { x: coinXForSlot('player1'), y: 45, draggedBy: null, health: 1 },
+      minions: createMinionCoins(coinXForSlot('player1'), 1, 1),
+    },
+    player2: {
+      main: { x: coinXForSlot('player2'), y: 45, draggedBy: null, health: 1 },
+      minions: createMinionCoins(coinXForSlot('player2'), 1, 1),
+    },
   };
 }
 
@@ -161,12 +168,16 @@ function selectCharacter(state: GameState, slot: PlayerSlot, characterId: string
   player.drawPile = deck.slice(INITIAL_HAND_SIZE);
   player.discardPile = [];
   player.playedCard = null;
-  // Different characters field different numbers of minions — resize this
-  // slot's minion coins to match, now that the character (and therefore
-  // the count) is known. Re-centers on the same spot regardless of count,
-  // so this is safe to redo on every re-pick during character-select.
-  const minionCount = getCharacterDef(characterId)?.minionCount ?? 1;
-  state.coins[slot].minions = createMinionCoins(coinXForSlot(slot), minionCount);
+  // Different characters field different numbers of minions, and different
+  // starting health for both main and minion coins — apply all of that now
+  // that the character is known. Re-centers minions on the same spot
+  // regardless of count, so this is safe to redo on every re-pick during
+  // character-select.
+  const def = getCharacterDef(characterId);
+  const minionCount = def?.minionCount ?? 1;
+  const minionHealth = def?.minionHealth ?? 1;
+  state.coins[slot].main.health = def?.mainHealth ?? 1;
+  state.coins[slot].minions = createMinionCoins(coinXForSlot(slot), minionCount, minionHealth);
 }
 
 function draw(player: ServerPlayerState): void {
@@ -342,6 +353,24 @@ function endDragCoin(
   }
 }
 
+/** Like coin dragging, anyone can edit any coin's health — it's a shared HP
+ *  tracker, not gated to the coin's own player. 0 or below is allowed
+ *  through (that's what marks the coin dead on the client); only a
+ *  non-finite value (a malformed message) is rejected. */
+function updateCoinHealth(
+  state: GameState,
+  coinOwner: PlayerSlot,
+  coinType: CoinType,
+  minionIndex: number | undefined,
+  health: number,
+): void {
+  const coin = resolveCoin(state, coinOwner, coinType, minionIndex);
+  if (!coin || !Number.isFinite(health)) {
+    return;
+  }
+  coin.health = Math.round(health);
+}
+
 export function applyAction(state: GameState, slot: PlayerSlot, action: GameAction): void {
   const player = state.players[slot];
   switch (action.type) {
@@ -404,6 +433,9 @@ export function applyAction(state: GameState, slot: PlayerSlot, action: GameActi
       return;
     case 'endDragCoin':
       endDragCoin(state, slot, action.coinOwner, action.coinType, action.minionIndex);
+      return;
+    case 'updateCoinHealth':
+      updateCoinHealth(state, action.coinOwner, action.coinType, action.minionIndex, action.health);
       return;
   }
 }

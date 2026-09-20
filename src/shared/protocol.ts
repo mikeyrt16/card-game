@@ -23,6 +23,11 @@ export interface CoinState {
    *  Only the holder's moveCoin/endDragCoin actions are honored; anyone
    *  else's startDragCoin is rejected while this is set to someone else. */
   draggedBy: PlayerSlot | null;
+  /** Starts at the owning character's default for this coin type (see
+   *  `CharacterDef.mainHealth`/`minionHealth`) and is edited in-place via
+   *  `updateCoinHealth`. At 0 or below, the coin is treated as dead — the
+   *  client plays a death animation and it stops being interactable. */
+  health: number;
 }
 
 /** One player's coins — a single main coin plus however many minion coins
@@ -89,7 +94,10 @@ export type GameAction =
   /** Only honored from whoever currently holds the coin (per draggedBy);
    *  sent continuously (rate-limited client-side) while dragging. */
   | { type: 'moveCoin'; coinOwner: PlayerSlot; coinType: CoinType; minionIndex?: number; x: number; y: number }
-  | { type: 'endDragCoin'; coinOwner: PlayerSlot; coinType: CoinType; minionIndex?: number };
+  | { type: 'endDragCoin'; coinOwner: PlayerSlot; coinType: CoinType; minionIndex?: number }
+  /** Any player can edit any coin's health, same as coin dragging — this is
+   *  a shared HP tracker, not a per-player stat. */
+  | { type: 'updateCoinHealth'; coinOwner: PlayerSlot; coinType: CoinType; minionIndex?: number; health: number };
 
 export type ClientAction = HelloMessage | GameAction;
 

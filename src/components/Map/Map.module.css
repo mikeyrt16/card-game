@@ -71,6 +71,69 @@
   box-shadow: 0 0 0 3px rgb(var(--glow-rgb) / 60%), 0 0 22px 8px rgb(var(--glow-rgb) / 65%);
 }
 
+/* Plays once when health crosses to 0 or below (the class is only added at
+   that point, so re-renders while dead don't replay it) then stays put via
+   forwards fill — invisible and inert, which is what "removed from the map"
+   means here without needing to actually unmount and lose its layout slot. */
+.coinDead {
+  animation: coinDeath 0.6s ease forwards;
+  pointer-events: none;
+}
+
+@keyframes coinDeath {
+  0% {
+    opacity: 1;
+    transform: translate(-50%, -50%) scale(1) rotate(0deg);
+    filter: grayscale(0) brightness(1);
+  }
+  40% {
+    opacity: 1;
+    transform: translate(-50%, -50%) scale(1.15) rotate(-10deg);
+    filter: grayscale(0.6) brightness(0.8);
+  }
+  100% {
+    opacity: 0;
+    transform: translate(-50%, -50%) scale(0) rotate(30deg);
+    filter: grayscale(1) brightness(0.3);
+  }
+}
+
+/* Health readout shown on hover, above the coin. Hidden by default and
+   revealed via the adjacent-sibling hover selector below rather than a
+   transition, so it appears/disappears instantly rather than fading. Its
+   own pointer-events:none stops it from ever being the hover target itself
+   (it sits above the coin, not over it, but this guards against any
+   overlap). A dead coin gets pointer-events:none too, so :hover can never
+   engage on it, and the badge naturally never shows. */
+.healthBadge {
+  position: absolute;
+  width: 28px;
+  height: 28px;
+  margin-left: -14px;
+  margin-top: -14px;
+  transform: translate(0, -72px);
+  border-radius: 50%;
+  background: rgba(10, 10, 10, 0.88);
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  color: #f5f5f5;
+  font-size: 13px;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0;
+  pointer-events: none;
+  z-index: 2;
+}
+
+.healthBadgeMinion {
+  transform: translate(0, -58px);
+}
+
+.coin:hover + .healthBadge {
+  opacity: 1;
+}
+
 /* Ambient particle fountain rendered behind each coin (z-index below
    .coin's 1) — an always-on flourish, not tied to drag/glow state. Its
    color comes from --particle-core/--particle-mid/--particle-fade custom

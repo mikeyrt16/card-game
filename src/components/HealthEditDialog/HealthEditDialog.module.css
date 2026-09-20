@@ -1,0 +1,89 @@
+.backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.65);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  /* Above the pile-preview overlay (5) and everything on the board
+     (10-60), so it reads as the topmost, blocking layer — same as
+     ConfirmDialog. */
+  z-index: 100;
+  cursor: pointer;
+}
+
+.dialog {
+  background: #1a1a1a;
+  border: 1px solid rgba(255, 255, 255, 0.35);
+  border-radius: 12px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.6);
+  padding: 24px 28px;
+  min-width: 280px;
+  max-width: 360px;
+  cursor: default;
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.title {
+  margin: 0;
+  color: #fff;
+  font-size: 15px;
+  font-weight: 600;
+  line-height: 1.4;
+}
+
+.input {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 10px 12px;
+  border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  background: #0f0f0f;
+  color: #fff;
+  font-size: 18px;
+  font-weight: 700;
+  text-align: center;
+}
+
+.input:focus {
+  outline: none;
+  border-color: rgba(255, 255, 255, 0.6);
+}
+
+.actions {
+  display: flex;
+  justify-content: center;
+  gap: 12px;
+}
+
+.cancelButton,
+.updateButton {
+  padding: 8px 18px;
+  border: none;
+  border-radius: 6px;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: background 0.15s ease;
+}
+
+.cancelButton {
+  background: rgba(255, 255, 255, 0.12);
+  color: #fff;
+}
+
+.cancelButton:hover {
+  background: rgba(255, 255, 255, 0.22);
+}
+
+.updateButton {
+  background: #3b7a3b;
+  color: #fff;
+}
+
+.updateButton:hover {
+  background: #4a934a;
+}

@@ -180,6 +180,9 @@ function Game({ state, character, map, send }: GameProps) {
           onCoinDragEnd={(owner, coinType, minionIndex) =>
             send({ type: 'endDragCoin', coinOwner: owner, coinType, minionIndex })
           }
+          onUpdateCoinHealth={(owner, coinType, minionIndex, health) =>
+            send({ type: 'updateCoinHealth', coinOwner: owner, coinType, minionIndex, health })
+          }
         />
       )}
       <GameMenu onReturnToMainMenu={() => send({ type: 'returnToMainMenu' })} />

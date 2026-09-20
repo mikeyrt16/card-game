@@ -1,5 +1,6 @@
 import { Fragment, useEffect, useRef, useState, type CSSProperties, type PointerEvent as ReactPointerEvent } from 'react';
 import { getCoinImage } from '../../data/assets';
+import { HealthEditDialog } from '../HealthEditDialog/HealthEditDialog';
 import type { CoinState, CoinType, PlayerCoins, PlayerSlot } from '../../shared/protocol';
 import styles from './Map.module.css';
 
@@ -135,6 +136,18 @@ function sameCoin(
   return a !== null && a.owner === owner && a.coinType === coinType && a.minionIndex === minionIndex;
 }
 
+/** Which coin the health-edit dialog is currently open for — captured at
+ *  double-click time rather than re-derived on every render, since the
+ *  dialog needs a stable starting value even as the coin's live health
+ *  keeps broadcasting in from the server while it's open. */
+interface EditingCoin {
+  owner: PlayerSlot;
+  coinType: CoinType;
+  minionIndex: number | undefined;
+  label: string;
+  health: number;
+}
+
 interface Size {
   width: number;
   height: number;
@@ -193,12 +206,23 @@ interface MapProps {
   onCoinDragStart: (owner: PlayerSlot, coinType: CoinType, minionIndex: number | undefined) => void;
   onCoinMove: (owner: PlayerSlot, coinType: CoinType, minionIndex: number | undefined, x: number, y: number) => void;
   onCoinDragEnd: (owner: PlayerSlot, coinType: CoinType, minionIndex: number | undefined) => void;
+  onUpdateCoinHealth: (owner: PlayerSlot, coinType: CoinType, minionIndex: number | undefined, health: number) => void;
 }
 
 /** The game board: the map art itself, plus (increasingly) whatever lives on
  *  top of it — for now, each player's draggable main coin and however many
  *  minion coins their character has. */
-export function Map({ image, dimmed, coins, mySlot, characterIds, onCoinDragStart, onCoinMove, onCoinDragEnd }: MapProps) {
+export function Map({
+  image,
+  dimmed,
+  coins,
+  mySlot,
+  characterIds,
+  onCoinDragStart,
+  onCoinMove,
+  onCoinDragEnd,
+  onUpdateCoinHealth,
+}: MapProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const imgRef = useRef<HTMLImageElement>(null);
   const [containerSize, setContainerSize] = useState<Size | null>(null);
@@ -213,6 +237,7 @@ export function Map({ image, dimmed, coins, mySlot, characterIds, onCoinDragStar
   // network traffic stays bounded.
   const rafRef = useRef<number | null>(null);
   const pendingMoveRef = useRef<LocalDrag | null>(null);
+  const [editingCoin, setEditingCoin] = useState<EditingCoin | null>(null);
 
   // Re-measure the image's natural size whenever it changes (new map) —
   // cleared first so a stale geometry from the previous image can't briefly
@@ -267,6 +292,11 @@ export function Map({ image, dimmed, coins, mySlot, characterIds, onCoinDragStar
   const handlePointerDown = (owner: PlayerSlot, coinType: CoinType, minionIndex: number | undefined, coin: CoinState) => (
     e: ReactPointerEvent<HTMLButtonElement>,
   ) => {
+    if (coin.health <= 0) {
+      // Dead coins are visually removed (pointer-events: none handles the
+      // common case) — belt-and-suspenders against any stray event.
+      return;
+    }
     if (coin.draggedBy && coin.draggedBy !== mySlot) {
       // Someone else already has it.
       return;
@@ -344,37 +374,41 @@ export function Map({ image, dimmed, coins, mySlot, characterIds, onCoinDragStar
           return coinEntries.map(({ coinType, minionIndex, coin }) => {
             const position = sameCoin(localDrag, owner, coinType, minionIndex) ? localDrag : coin;
             const { x: pxX, y: pxY } = imagePercentToContainerPx(position.x, position.y, geometry);
+            const isDead = coin.health <= 0;
             const isGlowing = Boolean(coin.draggedBy);
-            const isGrabbable = !coin.draggedBy || coin.draggedBy === mySlot;
+            const isGrabbable = !isDead && (!coin.draggedBy || coin.draggedBy === mySlot);
             const ownerLabel = owner === mySlot ? 'Your' : "Opponent's";
             const coinLabel =
               minionIndex !== undefined && playerCoins.minions.length > 1 ? `minion ${minionIndex + 1}` : coinType;
 
             return (
               <Fragment key={`${owner}-${coinType}-${minionIndex ?? 0}`}>
-                <div
-                  className={styles.particleField}
-                  style={
-                    {
-                      left: `${pxX}px`,
-                      top: `${pxY}px`,
-                      '--particle-core': particlePalette.core,
-                      '--particle-mid': particlePalette.mid,
-                      '--particle-fade': particlePalette.fade,
-                    } as CSSProperties
-                  }
-                  aria-hidden="true"
-                >
-                  {PARTICLES_BY_COIN_TYPE[coinType].map((particleStyle, i) => (
-                    <span key={i} className={styles.particle} style={particleStyle} />
-                  ))}
-                </div>
+                {!isDead && (
+                  <div
+                    className={styles.particleField}
+                    style={
+                      {
+                        left: `${pxX}px`,
+                        top: `${pxY}px`,
+                        '--particle-core': particlePalette.core,
+                        '--particle-mid': particlePalette.mid,
+                        '--particle-fade': particlePalette.fade,
+                      } as CSSProperties
+                    }
+                    aria-hidden="true"
+                  >
+                    {PARTICLES_BY_COIN_TYPE[coinType].map((particleStyle, i) => (
+                      <span key={i} className={styles.particle} style={particleStyle} />
+                    ))}
+                  </div>
+                )}
                 <button
                   type="button"
                   className={[
                     styles.coin,
                     coinType === 'minion' && styles.coinMinion,
                     isGlowing && styles.coinGlowing,
+                    isDead && styles.coinDead,
                   ]
                     .filter(Boolean)
                     .join(' ')}
@@ -390,6 +424,9 @@ export function Map({ image, dimmed, coins, mySlot, characterIds, onCoinDragStar
                   onPointerMove={handlePointerMove(owner, coinType, minionIndex)}
                   onPointerUp={endLocalDrag(owner, coinType, minionIndex)}
                   onPointerCancel={endLocalDrag(owner, coinType, minionIndex)}
+                  onDoubleClick={() =>
+                    setEditingCoin({ owner, coinType, minionIndex, label: `${ownerLabel} ${coinLabel}`, health: coin.health })
+                  }
                   aria-label={`${ownerLabel} ${coinLabel} coin`}
                 >
                   <img
@@ -399,10 +436,28 @@ export function Map({ image, dimmed, coins, mySlot, characterIds, onCoinDragStar
                     draggable={false}
                   />
                 </button>
+                <div
+                  className={`${styles.healthBadge} ${coinType === 'minion' ? styles.healthBadgeMinion : ''}`}
+                  style={{ left: `${pxX}px`, top: `${pxY}px` }}
+                  aria-hidden="true"
+                >
+                  {coin.health}
+                </div>
               </Fragment>
             );
           });
         })}
+      {editingCoin && (
+        <HealthEditDialog
+          label={editingCoin.label}
+          currentHealth={editingCoin.health}
+          onUpdate={(health) => {
+            onUpdateCoinHealth(editingCoin.owner, editingCoin.coinType, editingCoin.minionIndex, health);
+            setEditingCoin(null);
+          }}
+          onCancel={() => setEditingCoin(null)}
+        />
+      )}
     </div>
   );
 }
