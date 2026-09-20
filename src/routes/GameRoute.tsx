@@ -9,6 +9,7 @@ import { InfoButton } from '../components/InfoButton/InfoButton';
 import { CharacterCardDialog } from '../components/CharacterCardDialog/CharacterCardDialog';
 import { toClientCard, type CardData } from '../data/cards';
 import { getCharacter, type Character } from '../data/characters';
+import { MAPS, type MapInfo } from '../data/maps';
 import { useGameConnection } from '../net/GameConnectionProvider';
 import type { GameAction, GameStateView } from '../shared/protocol';
 import styles from './GameRoute.module.css';
@@ -32,32 +33,33 @@ export function GameRoute() {
     );
   }
 
-  if (!state.me.characterId) {
+  if (!state.me.characterId || state.phase === 'character-select') {
     return <Navigate to="/select" replace />;
   }
 
-  if (state.phase === 'selecting') {
-    return (
-      <div className={styles.board}>
-        <p className={styles.status}>Waiting for opponent to join…</p>
-      </div>
-    );
+  if (state.phase === 'map-select') {
+    return <Navigate to="/maps" replace />;
   }
 
   // characterId is guaranteed present by the game server, which only ever
   // sets it from the same catalog this client uses.
   const character = getCharacter(state.me.characterId)!;
+  // selectedMapId is shared/server-synced (set via MapSelectRoute), so both
+  // players land on the same map here — MAPS[0] is only a fallback for the
+  // (should-be-unreachable-via-normal-flow) case of no map ever being picked.
+  const map = MAPS.find((m) => m.id === state.selectedMapId) ?? MAPS[0];
 
-  return <Game state={state} character={character} send={send} />;
+  return <Game state={state} character={character} map={map} send={send} />;
 }
 
 interface GameProps {
   state: GameStateView;
   character: Character;
+  map: MapInfo | undefined;
   send: (action: GameAction) => void;
 }
 
-function Game({ state, character, send }: GameProps) {
+function Game({ state, character, map, send }: GameProps) {
   const [isDragActive, setIsDragActive] = useState(false);
   // The actual card currently being dragged, from either hand — lets the
   // real hand show a live "where this would land" preview for a card
@@ -141,6 +143,7 @@ function Game({ state, character, send }: GameProps) {
 
   return (
     <div className={styles.board}>
+      {map && <img src={map.image} alt="" className={styles.mapBackground} draggable={false} />}
       {/* Opponent's board, mirrored upside-down at the top — same
           components as our own piles/hand, just repositioned/read-only. */}
       <PlayerHand cards={opponentHand} variant="opponent" interactive={false} />

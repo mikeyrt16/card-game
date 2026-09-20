@@ -1,5 +1,12 @@
 import { getCharacterDef } from '../src/shared/characters';
-import type { GameAction, GameStateView, PilePosition, PlayerSlot, WireCard } from '../src/shared/protocol';
+import type {
+  GameAction,
+  GamePhase,
+  GameStateView,
+  PilePosition,
+  PlayerSlot,
+  WireCard,
+} from '../src/shared/protocol';
 
 const INITIAL_HAND_SIZE = 5;
 
@@ -14,6 +21,8 @@ interface ServerPlayerState {
 }
 
 export interface GameState {
+  phase: GamePhase;
+  selectedMapId: string | null;
   players: Record<PlayerSlot, ServerPlayerState>;
 }
 
@@ -30,7 +39,11 @@ export function createEmptyPlayer(): ServerPlayerState {
 }
 
 export function createInitialState(): GameState {
-  return { players: { player1: createEmptyPlayer(), player2: createEmptyPlayer() } };
+  return {
+    phase: 'character-select',
+    selectedMapId: null,
+    players: { player1: createEmptyPlayer(), player2: createEmptyPlayer() },
+  };
 }
 
 export function shuffle<T>(items: T[]): T[] {
@@ -97,8 +110,8 @@ function reorderByIds(cards: WireCard[], order: string[]): WireCard[] {
   return [...reordered, ...missing];
 }
 
-function selectCharacter(player: ServerPlayerState, characterId: string): void {
-  if (player.characterId) {
+function selectCharacter(state: GameState, player: ServerPlayerState, characterId: string): void {
+  if (state.phase !== 'character-select' || player.characterId) {
     return;
   }
   const deck = buildDeck(characterId);
@@ -179,11 +192,42 @@ function dropOntoHand(player: ServerPlayerState, cardId: string, index: number):
   player.hand = [...player.hand.slice(0, clampedIndex), withNewId(card), ...player.hand.slice(clampedIndex)];
 }
 
+function continueToMapSelect(state: GameState): void {
+  const bothPicked = state.players.player1.characterId && state.players.player2.characterId;
+  if (state.phase === 'character-select' && bothPicked) {
+    state.phase = 'map-select';
+  }
+}
+
+function selectMap(state: GameState, mapId: string): void {
+  // The server has no map catalog to validate against (map art is
+  // Vite-bundled client-side, never sent here) — just relay whatever the
+  // client picked so both sides broadcast-sync to the same choice.
+  if (state.phase === 'map-select') {
+    state.selectedMapId = mapId;
+  }
+}
+
+function continueToGame(state: GameState): void {
+  if (state.phase === 'map-select') {
+    state.phase = 'playing';
+  }
+}
+
 export function applyAction(state: GameState, slot: PlayerSlot, action: GameAction): void {
   const player = state.players[slot];
   switch (action.type) {
     case 'selectCharacter':
-      selectCharacter(player, action.characterId);
+      selectCharacter(state, player, action.characterId);
+      return;
+    case 'continueToMapSelect':
+      continueToMapSelect(state);
+      return;
+    case 'selectMap':
+      selectMap(state, action.mapId);
+      return;
+    case 'continueToGame':
+      continueToGame(state);
       return;
     case 'draw':
       draw(player);
@@ -231,10 +275,10 @@ function opponentSlotOf(slot: PlayerSlot): PlayerSlot {
 export function buildView(state: GameState, forSlot: PlayerSlot): GameStateView {
   const me = state.players[forSlot];
   const opponent = state.players[opponentSlotOf(forSlot)];
-  const phase: GameStateView['phase'] = me.characterId && opponent.characterId ? 'playing' : 'selecting';
 
   return {
-    phase,
+    phase: state.phase,
+    selectedMapId: state.selectedMapId,
     me: {
       characterId: me.characterId,
       connected: me.connected,

@@ -6,6 +6,11 @@ export type PlayerSlot = 'player1' | 'player2';
 
 export type PilePosition = 'top' | 'random' | 'bottom';
 
+/** Shared, server-driven screen both players move through together —
+ *  advancing (via continueToMapSelect / continueToGame) is a single game-
+ *  level transition, not something each player does independently. */
+export type GamePhase = 'character-select' | 'map-select' | 'playing';
+
 /** A single card instance as it travels over the wire: identifies the card
  *  definition (character + slug) rather than a resolved image URL, since
  *  the server has no knowledge of Vite-bundled asset paths. */
@@ -24,6 +29,17 @@ export interface HelloMessage {
  *  action only ever mutates the sending player's own board. */
 export type GameAction =
   | { type: 'selectCharacter'; characterId: string }
+  /** Advances the shared phase to 'map-select' — a no-op unless both
+   *  players have already picked a character. Either player can trigger it;
+   *  both move forward together since phase is shared, not per-player. */
+  | { type: 'continueToMapSelect' }
+  /** Sets the shared selected map. The server doesn't know the actual map
+   *  catalog (that's Vite-bundled client art) — it just relays whatever id
+   *  is sent, so both clients see the same choice as either one changes it. */
+  | { type: 'selectMap'; mapId: string }
+  /** Advances the shared phase to 'playing' — a no-op unless already in
+   *  'map-select'. Either player can trigger it, same as continueToMapSelect. */
+  | { type: 'continueToGame' }
   | { type: 'draw' }
   | { type: 'returnFromDiscard' }
   | { type: 'playCard'; cardId: string }
@@ -49,7 +65,10 @@ export interface PlayerView {
 }
 
 export interface GameStateView {
-  phase: 'selecting' | 'playing';
+  phase: GamePhase;
+  /** Shared between both players — set via selectMap, null until either
+   *  player has picked one. */
+  selectedMapId: string | null;
   /** The receiving player's own board — hand and the draw pile's actual
    *  contents are only ever sent to their owner, for a deliberate "look
    *  through your deck" view; the opponent's stay hidden as counts. */

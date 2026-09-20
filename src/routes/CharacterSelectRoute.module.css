@@ -51,6 +51,29 @@
   box-shadow: 0 14px 26px rgba(0, 0, 0, 0.5);
 }
 
+.card.selected {
+  border-color: #ffd54a;
+  box-shadow: 0 0 0 3px rgba(255, 213, 74, 0.45), 0 0 26px 6px rgba(255, 213, 74, 0.55);
+}
+
+/* Taken by the opponent — glows too (so it clearly reads as "spoken for"),
+   but in a distinct color from .selected and dimmed since it's disabled.
+   Ordered before .selected so a pick that's somehow both (shouldn't happen,
+   since the opponent's tile is disabled) still reads as "mine" on top. */
+.card.opponentSelected {
+  border-color: #ff6b6b;
+  box-shadow: 0 0 0 3px rgba(255, 107, 107, 0.4), 0 0 26px 6px rgba(255, 107, 107, 0.5);
+  opacity: 0.7;
+}
+
+.card:disabled {
+  cursor: not-allowed;
+}
+
+.card:disabled:hover {
+  transform: none;
+}
+
 .portrait {
   width: 100%;
   height: 100%;
@@ -73,4 +96,27 @@
   font-weight: 700;
   text-align: center;
   letter-spacing: 0.02em;
+}
+
+.continueButton {
+  padding: 14px 48px;
+  border: none;
+  border-radius: 10px;
+  background: #2f8f4e;
+  color: #fff;
+  font-size: 16px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  cursor: pointer;
+  transition: background 0.15s ease, opacity 0.15s ease;
+}
+
+.continueButton:not(:disabled):hover {
+  background: #37a75c;
+}
+
+.continueButton:disabled {
+  background: #3a3a3a;
+  color: rgba(255, 255, 255, 0.45);
+  cursor: default;
 }

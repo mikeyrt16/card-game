@@ -18,6 +18,21 @@
   padding: 0 24px;
 }
 
+.mapBackground {
+  position: fixed;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  /* Fills the screen edge-to-edge without distorting the image — crops
+     overflow rather than letterboxing. */
+  object-fit: cover;
+  /* Behind every other element on the board (all z-index 5+) and the
+     .board's own felt background, which stays as a fallback if no map
+     is available. */
+  z-index: 0;
+  pointer-events: none;
+}
+
 .pilePreview {
   position: fixed;
   inset: 0;
