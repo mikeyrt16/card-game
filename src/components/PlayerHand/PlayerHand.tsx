@@ -11,6 +11,11 @@ interface PlayerHandProps {
   /** When false, cards can't be hovered/focused or dragged — the hand stays
    *  a valid drop target but is otherwise inert. Default true. */
   interactive?: boolean;
+  /** When true (and interactive is false), cards can still be hovered to
+   *  show the same focus/zoom effect as an interactive hand, just not
+   *  dragged or reordered — e.g. a read-only look at someone else's pile.
+   *  Ignored when interactive is true (which already covers hover). */
+  hoverOnly?: boolean;
   /** Only meaningful for variant 'hand': keeps the auto-hide dock raised
    *  regardless of hover — e.g. while a pile preview is open and this hand
    *  still needs to be visible/usable as a drop target. Default false. */
@@ -55,6 +60,7 @@ export function PlayerHand({
   cards,
   variant = 'hand',
   interactive = true,
+  hoverOnly = false,
   forceOpen = false,
   onDockOpenChange,
   incomingCard,
@@ -63,6 +69,10 @@ export function PlayerHand({
   onReorder,
   onExternalDrop,
 }: PlayerHandProps) {
+  // Hover/focus-zoom and dragging are independently controllable —
+  // interactive covers both, hoverOnly adds just the former on top of an
+  // otherwise inert hand. Dragging always requires full `interactive`.
+  const canHover = interactive || hoverOnly;
   const [focusedCardId, setFocusedCardId] = useState<string | null>(null);
   const [draggedCardId, setDraggedCardId] = useState<string | null>(null);
   // Which other card the pointer is currently over — a live preview only,
@@ -299,7 +309,7 @@ export function PlayerHand({
             <div
               key={card.id}
               className={styles.slot}
-              style={{ ...positionStyle, zIndex: i, pointerEvents: interactive ? undefined : 'none' }}
+              style={{ ...positionStyle, zIndex: i, pointerEvents: canHover ? undefined : 'none' }}
               draggable={interactive}
               onDragStart={
                 interactive
@@ -372,8 +382,8 @@ export function PlayerHand({
                     }
                   : undefined
               }
-              onMouseEnter={interactive ? () => setFocusedCardId(card.id) : undefined}
-              onMouseLeave={interactive ? () => setFocusedCardId(null) : undefined}
+              onMouseEnter={canHover ? () => setFocusedCardId(card.id) : undefined}
+              onMouseLeave={canHover ? () => setFocusedCardId(null) : undefined}
             />
           );
         })}
@@ -382,9 +392,9 @@ export function PlayerHand({
           const normalized = center > 0 ? offset / center : 0;
           const isIncoming = incomingCard?.id === card.id;
           // A stale hover-focus from before this hand went inert shouldn't
-          // still render as expanded, so gate on `interactive` here rather
+          // still render as expanded, so gate on `canHover` here rather
           // than clearing the state itself.
-          const isFocused = interactive && !isIncoming && focusedCardId === card.id;
+          const isFocused = canHover && !isIncoming && focusedCardId === card.id;
   
           const positionStyle = {
             '--rotate': `${normalized * MAX_ROTATION_DEG}deg`,

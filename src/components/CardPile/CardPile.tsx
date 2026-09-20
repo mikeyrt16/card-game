@@ -61,6 +61,9 @@ export function CardPile({
     'opponent-draw': styles.placementOpponentDraw,
     'opponent-discard': styles.placementOpponentDiscard,
   }[placement];
+  // Opponent piles sit near the top of the screen, so their hover menu
+  // needs to open downward instead of the default upward (see .menuBelow).
+  const opensBelow = placement === 'opponent-draw' || placement === 'opponent-discard';
 
   return (
     <div
@@ -87,8 +90,8 @@ export function CardPile({
           {/* Fills the gap between the pile and the menu so the pointer
               stays within this element's subtree the whole way there —
               otherwise it crosses empty space and mouseleave fires first. */}
-          <div className={styles.bridge} />
-          <div className={styles.menu}>
+          <div className={opensBelow ? `${styles.bridge} ${styles.bridgeBelow}` : styles.bridge} />
+          <div className={opensBelow ? `${styles.menu} ${styles.menuBelow}` : styles.menu}>
             {onView && (
               <button
                 type="button"

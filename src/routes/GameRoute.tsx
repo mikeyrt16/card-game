@@ -192,11 +192,9 @@ function Game({ state, character, map, send }: GameProps) {
         <CardPile
           count={opponentDiscardPile.length}
           image={opponentDiscardPile[0]?.image ?? ''}
-          ariaLabel={`Opponent's discard pile (${opponentDiscardPile.length} cards)`}
+          ariaLabel={`View opponent's discard pile (${opponentDiscardPile.length} cards)`}
           placement="opponent-discard"
-          onClick={() => {}}
-          disabled
-          onView={() => {
+          onClick={() => {
             setIsViewingOpponentDiscard(true);
             setIsViewingDiscard(false);
             setIsViewingDraw(false);
@@ -214,7 +212,10 @@ function Game({ state, character, map, send }: GameProps) {
       <PlayerHand
         cards={hand}
         interactive={!isViewingDiscard && !isViewingDraw && !isViewingOpponentDiscard}
-        forceOpen={isViewingDiscard || isViewingDraw || isViewingOpponentDiscard}
+        // Unlike our own discard/draw previews, the opponent's discard
+        // preview is read-only with nothing to drag in or out of — no
+        // reason to force the hand open just because it's showing.
+        forceOpen={isViewingDiscard || isViewingDraw}
         onDockOpenChange={setIsHandOpen}
         incomingCard={draggedCard && !hand.some((c) => c.id === draggedCard.id) ? draggedCard : undefined}
         onCardDragStart={(card) => {
@@ -330,8 +331,15 @@ function Game({ state, character, map, send }: GameProps) {
       {isViewingOpponentDiscard && (
         <div className={styles.pilePreview} onClick={() => setIsViewingOpponentDiscard(false)}>
           {/* Read-only — interactive=false and no drag/reorder handlers, so
-              nothing can be picked up, reordered, or dragged out of it. */}
-          <PlayerHand cards={[...opponentDiscardPile].reverse()} variant="preview" interactive={false} />
+              nothing can be picked up, reordered, or dragged out of it.
+              hoverOnly keeps the same hover-to-zoom focus effect as the
+              other (draggable) previews despite that. */}
+          <PlayerHand
+            cards={[...opponentDiscardPile].reverse()}
+            variant="preview"
+            interactive={false}
+            hoverOnly
+          />
         </div>
       )}
       {shuffleConfirm && (
