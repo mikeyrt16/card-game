@@ -1,11 +1,12 @@
 import { CHARACTER_DEFS } from '../shared/characters';
-import { getCardBackImage, getCharacterPortrait } from './assets';
+import { getCardBackImage, getCharacterCardImage, getCharacterPortrait } from './assets';
 
 export interface Character {
   id: string;
   name: string;
   portrait: string;
   cardBack: string;
+  characterCard: string;
 }
 
 export const CHARACTERS: Character[] = CHARACTER_DEFS.map((def) => ({
@@ -13,6 +14,7 @@ export const CHARACTERS: Character[] = CHARACTER_DEFS.map((def) => ({
   name: def.name,
   portrait: getCharacterPortrait(def.id),
   cardBack: getCardBackImage(def.id),
+  characterCard: getCharacterCardImage(def.id),
 }));
 
 export function getCharacter(id: string | undefined): Character | undefined {

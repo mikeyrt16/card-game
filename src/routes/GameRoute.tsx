@@ -5,6 +5,8 @@ import { PileDropZone, type PilePosition } from '../components/PileDropZone/Pile
 import { DropZone } from '../components/DropZone/DropZone';
 import { PlayerHand } from '../components/PlayerHand/PlayerHand';
 import { ConfirmDialog } from '../components/ConfirmDialog/ConfirmDialog';
+import { InfoButton } from '../components/InfoButton/InfoButton';
+import { CharacterCardDialog } from '../components/CharacterCardDialog/CharacterCardDialog';
 import { toClientCard, type CardData } from '../data/cards';
 import { getCharacter, type Character } from '../data/characters';
 import { useGameConnection } from '../net/GameConnectionProvider';
@@ -67,6 +69,8 @@ function Game({ state, character, send }: GameProps) {
   const [isViewingDraw, setIsViewingDraw] = useState(false);
   // Which pile's shuffle is pending confirmation, if any.
   const [shuffleConfirm, setShuffleConfirm] = useState<'draw' | 'discard' | null>(null);
+  // Whose character card is currently being viewed, if any.
+  const [viewingCharacterCard, setViewingCharacterCard] = useState<'me' | 'opponent' | null>(null);
 
   const hand = state.me.hand.map(toClientCard);
   const drawPile = state.me.drawPile.map(toClientCard);
@@ -156,6 +160,13 @@ function Game({ state, character, send }: GameProps) {
         onClick={() => {}}
         disabled
       />
+      {opponentCharacter && (
+        <InfoButton
+          placement="opponent"
+          ariaLabel={`View ${opponentCharacter.name}'s character card`}
+          onClick={() => setViewingCharacterCard('opponent')}
+        />
+      )}
       <PlayerHand
         cards={hand}
         interactive={!isViewingDiscard && !isViewingDraw}
@@ -202,6 +213,11 @@ function Game({ state, character, send }: GameProps) {
           onShuffle={() => setShuffleConfirm('discard')}
         />
       )}
+      <InfoButton
+        placement="player"
+        ariaLabel={`View ${character.name}'s character card`}
+        onClick={() => setViewingCharacterCard('me')}
+      />
       <PileDropZone
         placement="draw"
         isDragActive={isDragActive && !isViewingDraw}
@@ -276,6 +292,13 @@ function Game({ state, character, send }: GameProps) {
             setShuffleConfirm(null);
           }}
           onCancel={() => setShuffleConfirm(null)}
+        />
+      )}
+      {viewingCharacterCard && (
+        <CharacterCardDialog
+          image={viewingCharacterCard === 'me' ? character.characterCard : (opponentCharacter?.characterCard ?? '')}
+          characterName={viewingCharacterCard === 'me' ? character.name : (opponentCharacter?.name ?? '')}
+          onClose={() => setViewingCharacterCard(null)}
         />
       )}
     </div>
