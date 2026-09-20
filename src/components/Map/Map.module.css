@@ -21,6 +21,9 @@
   pointer-events: none;
   filter: brightness(1);
   transition: filter 0.3s ease;
+  /* Explicit (rather than relying on z-index:auto's default stacking)
+     so it's unambiguously behind .particleField (0) and .coin (1). */
+  z-index: -1;
 }
 
 .dimmed {
@@ -29,8 +32,8 @@
 
 .coin {
   position: absolute;
-  width: 56px;
-  height: 56px;
+  width: 101px;
+  height: 101px;
   padding: 0;
   border: none;
   border-radius: 50%;
@@ -47,8 +50,8 @@
 }
 
 .coinMinion {
-  width: 42px;
-  height: 42px;
+  width: 76px;
+  height: 76px;
 }
 
 .coinImage {
@@ -63,4 +66,61 @@
 
 .coinGlowing {
   box-shadow: 0 0 0 3px rgba(255, 213, 74, 0.6), 0 0 22px 8px rgba(255, 213, 74, 0.65);
+}
+
+/* Ambient particle fountain rendered behind each coin (z-index below
+   .coin's 1) — an always-on flourish, not tied to drag/glow state. The
+   ally/enemy variants set the color via custom properties, inherited down
+   to the .particle children below, so the same particle markup/animation
+   works for both — only the palette differs. */
+.particleField {
+  position: absolute;
+  width: 0;
+  height: 0;
+  transform: translate(-50%, -50%);
+  pointer-events: none;
+  z-index: 0;
+}
+
+.particleFieldAlly {
+  --particle-core: #eaf4ff;
+  --particle-mid: #3b82f6;
+  --particle-fade: rgba(59, 130, 246, 0);
+}
+
+.particleFieldEnemy {
+  --particle-core: #ffe9e9;
+  --particle-mid: #e0293e;
+  --particle-fade: rgba(224, 41, 62, 0);
+}
+
+.particle {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: var(--size);
+  height: var(--size);
+  margin-left: calc(var(--size) / -2);
+  margin-top: calc(var(--size) / -2);
+  border-radius: 50%;
+  background: radial-gradient(circle, var(--particle-core) 0%, var(--particle-mid) 45%, var(--particle-fade) 75%);
+  opacity: 0;
+  animation-name: particleBurst;
+  animation-duration: var(--duration);
+  animation-timing-function: ease-out;
+  animation-iteration-count: infinite;
+}
+
+@keyframes particleBurst {
+  0% {
+    transform: translate(0, 0) scale(1.6);
+    opacity: 0;
+  }
+  18% {
+    opacity: var(--peak-opacity);
+  }
+  100% {
+    transform: translate(var(--tx), var(--ty)) scale(0.3);
+    opacity: 0;
+  }
 }

@@ -1,10 +1,85 @@
-import { useEffect, useRef, useState, type PointerEvent as ReactPointerEvent } from 'react';
+import { Fragment, useEffect, useRef, useState, type CSSProperties, type PointerEvent as ReactPointerEvent } from 'react';
 import { getCoinImage } from '../../data/assets';
 import type { CoinState, CoinType, PlayerSlot } from '../../shared/protocol';
 import styles from './Map.module.css';
 
 const SLOTS: PlayerSlot[] = ['player1', 'player2'];
 const COIN_TYPES: CoinType[] = ['main', 'minion'];
+
+/** Per-coin-type fountain tuning. Minion coins are visually smaller (76px
+ *  vs. main's 101px, ~75% the size), so an equally-intense fountain would
+ *  *read* as weaker next to the bigger main coin — minion's numbers here
+ *  are boosted proportionally harder than main's (bigger relative jump in
+ *  count, size, opacity, and rate) so the two feel comparably intense
+ *  despite the size gap. Higher count + shorter duration both raise the
+ *  effective emission rate (roughly count / duration particles-equivalent
+ *  per second), since each particle re-loops that often.
+ *
+ *  `distance` must clear the coin's own radius (main: 101px wide → 50.5px
+ *  radius; minion: 76px → 38px) by a healthy margin — particles originate
+ *  at dead center behind the coin (z-index below it), so anything that
+ *  never travels past the radius spends its entire life hidden underneath
+ *  the opaque coin and is never actually seen. */
+const PARTICLE_CONFIG: Record<
+  CoinType,
+  { count: number; distance: number; size: number; peakOpacity: number; durationSeconds: number }
+> = {
+  main: { count: 192, distance: 100, size: 16, peakOpacity: 1, durationSeconds: 2.0 },
+  minion: { count: 136, distance: 72, size: 13, peakOpacity: 0.95, durationSeconds: 1.4 },
+};
+
+/** Deterministic pseudo-random in [0, 1), seeded by an arbitrary number —
+ *  used instead of Math.random() so the pattern is stable across renders
+ *  (computed once at module load below) rather than reshuffling itself.
+ *  Different seeds per property (angle/distance/delay all use a different
+ *  multiplier+offset off the same particle index) keep them decorrelated
+ *  from each other. */
+function pseudoRandom(seed: number): number {
+  const x = Math.sin(seed * 12.9898) * 43758.5453;
+  return x - Math.floor(x);
+}
+
+/** Generates one fountain's worth of particle styles for a coin type. Pure
+ *  function of coinType, computed once at module load (below) rather than
+ *  per render — there's nothing per-instance to vary, since both players'
+ *  coins of the same type share the same fountain pattern. */
+function buildParticles(coinType: CoinType): CSSProperties[] {
+  const { count, distance, size, peakOpacity, durationSeconds } = PARTICLE_CONFIG[coinType];
+  return Array.from({ length: count }, (_, i) => {
+    // Fully random angle around the full circle. Deliberately *not*
+    // derived from the same even progression as the delay below (e.g.
+    // evenly-spaced angle paired with evenly-staggered delay) — that
+    // combination made the burst read as a rotating "spinning" sweep
+    // instead of a random scatter, since direction and emission order
+    // were correlated.
+    const angleRad = pseudoRandom(i * 3.1 + 0.17) * 2 * Math.PI;
+    const particleDistance = distance * (0.7 + 0.5 * pseudoRandom(i * 7.7 + 1.9));
+    const tx = Math.cos(angleRad) * particleDistance;
+    const ty = Math.sin(angleRad) * particleDistance;
+    // Every particle sharing one exact duration, evenly staggered by index,
+    // makes the whole fountain a perfectly periodic signal — at high counts
+    // with a short base duration (minion) that period gets short enough to
+    // beat against the display's frame rate, which reads as a visible
+    // pulse rather than a steady stream. Jittering each particle's own
+    // duration slightly desynchronizes the population so no single beat
+    // frequency dominates.
+    const particleDuration = durationSeconds * (0.82 + 0.36 * pseudoRandom(i * 5.3 + 3.7));
+    const delaySeconds = -((i / count) * particleDuration);
+    return {
+      '--tx': `${tx.toFixed(1)}px`,
+      '--ty': `${ty.toFixed(1)}px`,
+      '--size': `${size}px`,
+      '--peak-opacity': peakOpacity,
+      '--duration': `${particleDuration.toFixed(3)}s`,
+      animationDelay: `${delaySeconds}s`,
+    } as CSSProperties;
+  });
+}
+
+const PARTICLES_BY_COIN_TYPE: Record<CoinType, CSSProperties[]> = {
+  main: buildParticles('main'),
+  minion: buildParticles('minion'),
+};
 
 interface LocalDrag {
   owner: PlayerSlot;
@@ -213,21 +288,40 @@ export function Map({ image, dimmed, coins, mySlot, characterIds, onCoinDragStar
             const ownerLabel = owner === mySlot ? 'Your' : "Opponent's";
 
             return (
-              <button
-                key={`${owner}-${coinType}`}
-                type="button"
-                className={[styles.coin, coinType === 'minion' && styles.coinMinion, isGlowing && styles.coinGlowing]
-                  .filter(Boolean)
-                  .join(' ')}
-                style={{ left: `${pxX}px`, top: `${pxY}px`, cursor: isGrabbable ? 'grab' : 'default' }}
-                onPointerDown={handlePointerDown(owner, coinType, coin)}
-                onPointerMove={handlePointerMove(owner, coinType)}
-                onPointerUp={endLocalDrag(owner, coinType)}
-                onPointerCancel={endLocalDrag(owner, coinType)}
-                aria-label={`${ownerLabel} ${coinType} coin`}
-              >
-                <img src={getCoinImage(characterId, coinType)} alt="" className={styles.coinImage} draggable={false} />
-              </button>
+              <Fragment key={`${owner}-${coinType}`}>
+                <div
+                  className={`${styles.particleField} ${owner === mySlot ? styles.particleFieldAlly : styles.particleFieldEnemy}`}
+                  style={{ left: `${pxX}px`, top: `${pxY}px` }}
+                  aria-hidden="true"
+                >
+                  {PARTICLES_BY_COIN_TYPE[coinType].map((particleStyle, i) => (
+                    <span key={i} className={styles.particle} style={particleStyle} />
+                  ))}
+                </div>
+                <button
+                  type="button"
+                  className={[
+                    styles.coin,
+                    coinType === 'minion' && styles.coinMinion,
+                    isGlowing && styles.coinGlowing,
+                  ]
+                    .filter(Boolean)
+                    .join(' ')}
+                  style={{ left: `${pxX}px`, top: `${pxY}px`, cursor: isGrabbable ? 'grab' : 'default' }}
+                  onPointerDown={handlePointerDown(owner, coinType, coin)}
+                  onPointerMove={handlePointerMove(owner, coinType)}
+                  onPointerUp={endLocalDrag(owner, coinType)}
+                  onPointerCancel={endLocalDrag(owner, coinType)}
+                  aria-label={`${ownerLabel} ${coinType} coin`}
+                >
+                  <img
+                    src={getCoinImage(characterId, coinType)}
+                    alt=""
+                    className={styles.coinImage}
+                    draggable={false}
+                  />
+                </button>
+              </Fragment>
             );
           }),
         )}

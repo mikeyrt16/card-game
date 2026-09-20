@@ -129,8 +129,18 @@ function reorderByIds(cards: WireCard[], order: string[]): WireCard[] {
   return [...reordered, ...missing];
 }
 
-function selectCharacter(state: GameState, player: ServerPlayerState, characterId: string): void {
-  if (state.phase !== 'character-select' || player.characterId) {
+function selectCharacter(state: GameState, slot: PlayerSlot, characterId: string): void {
+  if (state.phase !== 'character-select') {
+    return;
+  }
+  const player = state.players[slot];
+  const opponent = state.players[opponentSlotOf(slot)];
+  if (characterId === player.characterId) {
+    // Already picked — nothing to do (and no point re-shuffling a fresh deck).
+    return;
+  }
+  if (characterId === opponent.characterId) {
+    // Taken by the other player.
     return;
   }
   const deck = buildDeck(characterId);
@@ -287,7 +297,7 @@ export function applyAction(state: GameState, slot: PlayerSlot, action: GameActi
   const player = state.players[slot];
   switch (action.type) {
     case 'selectCharacter':
-      selectCharacter(state, player, action.characterId);
+      selectCharacter(state, slot, action.characterId);
       return;
     case 'continueToMapSelect':
       continueToMapSelect(state);
