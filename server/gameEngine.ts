@@ -214,6 +214,22 @@ function continueToGame(state: GameState): void {
   }
 }
 
+function resetPlayerToCharacterSelect(player: ServerPlayerState): void {
+  player.characterId = null;
+  player.drawPile = [];
+  player.discardPile = [];
+  player.hand = [];
+  player.playedCard = null;
+  // token/connected are identity, not game progress — left untouched.
+}
+
+function returnToMainMenu(state: GameState): void {
+  state.phase = 'character-select';
+  state.selectedMapId = null;
+  resetPlayerToCharacterSelect(state.players.player1);
+  resetPlayerToCharacterSelect(state.players.player2);
+}
+
 export function applyAction(state: GameState, slot: PlayerSlot, action: GameAction): void {
   const player = state.players[slot];
   switch (action.type) {
@@ -264,6 +280,9 @@ export function applyAction(state: GameState, slot: PlayerSlot, action: GameActi
       return;
     case 'shuffleDrawPile':
       player.drawPile = shuffle(player.drawPile);
+      return;
+    case 'returnToMainMenu':
+      returnToMainMenu(state);
       return;
   }
 }

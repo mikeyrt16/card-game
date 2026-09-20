@@ -1,0 +1,74 @@
+.menuButton {
+  position: fixed;
+  top: 20px;
+  left: 20px;
+  width: 40px;
+  height: 40px;
+  padding: 0;
+  border-radius: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.35);
+  background: #1a1a1a;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  cursor: pointer;
+  z-index: 50;
+  transition: background 0.15s ease, border-color 0.15s ease;
+}
+
+.menuButton:hover {
+  background: #2a2a2a;
+  border-color: rgba(255, 255, 255, 0.6);
+}
+
+.line {
+  display: block;
+  width: 20px;
+  height: 2px;
+  border-radius: 1px;
+  background: #fff;
+}
+
+.backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.5);
+  z-index: 100;
+  cursor: pointer;
+}
+
+.panel {
+  /* Pinned directly under .menuButton (same left offset) rather than
+     centered/flex-aligned, so it reads as that button's own dropdown. */
+  position: fixed;
+  top: 68px;
+  left: 20px;
+  background: #1a1a1a;
+  border: 1px solid rgba(255, 255, 255, 0.35);
+  border-radius: 12px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.6);
+  padding: 8px;
+  min-width: 220px;
+  cursor: default;
+}
+
+.menuItem {
+  display: block;
+  width: 100%;
+  padding: 12px 16px;
+  border: none;
+  border-radius: 8px;
+  background: transparent;
+  color: #fff;
+  font-size: 14px;
+  font-weight: 600;
+  text-align: left;
+  cursor: pointer;
+  transition: background 0.15s ease;
+}
+
+.menuItem:hover {
+  background: rgba(255, 255, 255, 0.12);
+}

@@ -1,6 +1,7 @@
 import { useEffect } from 'react';
 import { Navigate, useNavigate } from 'react-router-dom';
 import { MAPS } from '../data/maps';
+import { GameMenu } from '../components/GameMenu/GameMenu';
 import { useGameConnection } from '../net/GameConnectionProvider';
 import styles from './MapSelectRoute.module.css';
 
@@ -32,6 +33,7 @@ export function MapSelectRoute() {
 
   return (
     <div className={styles.screen}>
+      <GameMenu onReturnToMainMenu={() => send({ type: 'returnToMainMenu' })} />
       <div className={styles.listPanel}>
         <h1 className={styles.title}>Choose a map</h1>
         <div className={styles.mapList}>

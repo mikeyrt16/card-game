@@ -17,6 +17,7 @@
   cursor: pointer;
   z-index: 50;
   transition: background 0.15s ease, border-color 0.15s ease;
+  /* margin-left: 10px; */
 }
 
 .infoButton:hover {
@@ -35,5 +36,18 @@
    top: 20px). */
 .placementOpponent {
   right: 284px;
+  top: 83px;
+}
+
+/* Discard pile is empty (and so isn't rendered at all) — sit next to the
+   draw pile (left/right: 32px, width: 110px) instead, with a bit more
+   breathing room (20px vs. the 12px gap used next to the discard pile). */
+.placementPlayerNearDraw {
+  left: 162px;
+  bottom: 83px;
+}
+
+.placementOpponentNearDraw {
+  right: 162px;
   top: 83px;
 }

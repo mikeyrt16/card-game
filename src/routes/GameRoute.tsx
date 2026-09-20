@@ -7,6 +7,7 @@ import { PlayerHand } from '../components/PlayerHand/PlayerHand';
 import { ConfirmDialog } from '../components/ConfirmDialog/ConfirmDialog';
 import { InfoButton } from '../components/InfoButton/InfoButton';
 import { CharacterCardDialog } from '../components/CharacterCardDialog/CharacterCardDialog';
+import { GameMenu } from '../components/GameMenu/GameMenu';
 import { toClientCard, type CardData } from '../data/cards';
 import { getCharacter, type Character } from '../data/characters';
 import { MAPS, type MapInfo } from '../data/maps';
@@ -69,10 +70,16 @@ function Game({ state, character, map, send }: GameProps) {
   const [draggedCard, setDraggedCard] = useState<CardData | null>(null);
   const [isViewingDiscard, setIsViewingDiscard] = useState(false);
   const [isViewingDraw, setIsViewingDraw] = useState(false);
+  // Mirrors the real hand's own auto-hide dock open/closed state (reported
+  // via onDockOpenChange), so the map can dim in step with it.
+  const [isHandOpen, setIsHandOpen] = useState(false);
   // Which pile's shuffle is pending confirmation, if any.
   const [shuffleConfirm, setShuffleConfirm] = useState<'draw' | 'discard' | null>(null);
   // Whose character card is currently being viewed, if any.
   const [viewingCharacterCard, setViewingCharacterCard] = useState<'me' | 'opponent' | null>(null);
+  // Dims the map behind any of the hand/pile fanned-card views, so they
+  // read more clearly against it.
+  const isMapDimmed = isHandOpen || isViewingDiscard || isViewingDraw;
 
   const hand = state.me.hand.map(toClientCard);
   const drawPile = state.me.drawPile.map(toClientCard);
@@ -143,7 +150,15 @@ function Game({ state, character, map, send }: GameProps) {
 
   return (
     <div className={styles.board}>
-      {map && <img src={map.image} alt="" className={styles.mapBackground} draggable={false} />}
+      {map && (
+        <img
+          src={map.image}
+          alt=""
+          className={isMapDimmed ? `${styles.mapBackground} ${styles.mapBackgroundDimmed}` : styles.mapBackground}
+          draggable={false}
+        />
+      )}
+      <GameMenu onReturnToMainMenu={() => send({ type: 'returnToMainMenu' })} />
       {/* Opponent's board, mirrored upside-down at the top — same
           components as our own piles/hand, just repositioned/read-only. */}
       <PlayerHand cards={opponentHand} variant="opponent" interactive={false} />
@@ -166,6 +181,7 @@ function Game({ state, character, map, send }: GameProps) {
       {opponentCharacter && (
         <InfoButton
           placement="opponent"
+          anchor={opponentDiscardPile.length === 0 ? 'draw' : 'discard'}
           ariaLabel={`View ${opponentCharacter.name}'s character card`}
           onClick={() => setViewingCharacterCard('opponent')}
         />
@@ -174,6 +190,7 @@ function Game({ state, character, map, send }: GameProps) {
         cards={hand}
         interactive={!isViewingDiscard && !isViewingDraw}
         forceOpen={isViewingDiscard || isViewingDraw}
+        onDockOpenChange={setIsHandOpen}
         incomingCard={draggedCard && !hand.some((c) => c.id === draggedCard.id) ? draggedCard : undefined}
         onCardDragStart={(card) => {
           setIsDragActive(true);
@@ -218,6 +235,7 @@ function Game({ state, character, map, send }: GameProps) {
       )}
       <InfoButton
         placement="player"
+        anchor={discardPile.length === 0 ? 'draw' : 'discard'}
         ariaLabel={`View ${character.name}'s character card`}
         onClick={() => setViewingCharacterCard('me')}
       />

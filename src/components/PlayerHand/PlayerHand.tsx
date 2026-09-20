@@ -1,4 +1,4 @@
-import { useRef, useState, type CSSProperties, type DragEvent } from 'react';
+import { useEffect, useRef, useState, type CSSProperties, type DragEvent } from 'react';
 import type { CardData } from '../../data/cards';
 import styles from './PlayerHand.module.css';
 
@@ -15,6 +15,9 @@ interface PlayerHandProps {
    *  regardless of hover — e.g. while a pile preview is open and this hand
    *  still needs to be visible/usable as a drop target. Default false. */
   forceOpen?: boolean;
+  /** Only meaningful for variant 'hand': fires whenever the auto-hide
+   *  dock's raised/lowered state changes. */
+  onDockOpenChange?: (isOpen: boolean) => void;
   /** A card currently being dragged in from elsewhere (not already part of
    *  `cards`) — shown as a live preview inserted wherever it's hovered.
    *  Committing it still happens via onExternalDrop. */
@@ -53,6 +56,7 @@ export function PlayerHand({
   variant = 'hand',
   interactive = true,
   forceOpen = false,
+  onDockOpenChange,
   incomingCard,
   onCardDragStart,
   onCardDragEnd,
@@ -160,6 +164,12 @@ export function PlayerHand({
     isHoveringHandArea ||
     Boolean(effectiveDraggedCardId) ||
     isIncomingHovered;
+
+  useEffect(() => {
+    if (isDockedHand) {
+      onDockOpenChange?.(isDockOpen);
+    }
+  }, [isDockedHand, isDockOpen, onDockOpenChange]);
 
   const handleDragOver = (e: DragEvent<HTMLDivElement>) => {
     if (!canReceiveDrag) {

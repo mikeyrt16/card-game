@@ -31,6 +31,12 @@
      is available. */
   z-index: 0;
   pointer-events: none;
+  filter: brightness(1);
+  transition: filter 0.3s ease;
+}
+
+.mapBackgroundDimmed {
+  filter: brightness(0.5);
 }
 
 .pilePreview {

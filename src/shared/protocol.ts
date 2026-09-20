@@ -51,7 +51,12 @@ export type GameAction =
   | { type: 'reorderDiscard'; order: string[] }
   | { type: 'reorderDrawPile'; order: string[] }
   | { type: 'shuffleDiscard' }
-  | { type: 'shuffleDrawPile' };
+  | { type: 'shuffleDrawPile' }
+  /** Resets the shared game back to 'character-select' — both players'
+   *  characterId, hand, and piles are cleared so they can reselect from
+   *  scratch. Either player can trigger it, same as the other phase
+   *  transitions; not gated by the current phase. */
+  | { type: 'returnToMainMenu' };
 
 export type ClientAction = HelloMessage | GameAction;
 

@@ -11,7 +11,9 @@
   display: flex;
   flex-direction: column;
   gap: 20px;
-  padding: 32px 20px;
+  /* Extra top clearance so the fixed GameMenu button (top: 20px, 40px
+     tall) in the top-left corner doesn't sit over the title. */
+  padding: 76px 20px 32px;
   background: rgba(0, 0, 0, 0.25);
   border-right: 1px solid rgba(255, 255, 255, 0.15);
 }
