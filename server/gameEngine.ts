@@ -1,5 +1,7 @@
 import { getCharacterDef } from '../src/shared/characters';
 import type {
+  CoinState,
+  CoinType,
   GameAction,
   GamePhase,
   GameStateView,
@@ -23,6 +25,7 @@ interface ServerPlayerState {
 export interface GameState {
   phase: GamePhase;
   selectedMapId: string | null;
+  coins: Record<PlayerSlot, Record<CoinType, CoinState>>;
   players: Record<PlayerSlot, ServerPlayerState>;
 }
 
@@ -38,10 +41,26 @@ export function createEmptyPlayer(): ServerPlayerState {
   };
 }
 
+/** Player1's coins start on the left, player2's on the right — deterministic
+ *  by slot, since there's no other basis to assign sides from. */
+function createInitialCoins(): Record<PlayerSlot, Record<CoinType, CoinState>> {
+  return {
+    player1: {
+      main: { x: 15, y: 45, draggedBy: null },
+      minion: { x: 15, y: 58, draggedBy: null },
+    },
+    player2: {
+      main: { x: 85, y: 45, draggedBy: null },
+      minion: { x: 85, y: 58, draggedBy: null },
+    },
+  };
+}
+
 export function createInitialState(): GameState {
   return {
     phase: 'character-select',
     selectedMapId: null,
+    coins: createInitialCoins(),
     players: { player1: createEmptyPlayer(), player2: createEmptyPlayer() },
   };
 }
@@ -226,8 +245,42 @@ function resetPlayerToCharacterSelect(player: ServerPlayerState): void {
 function returnToMainMenu(state: GameState): void {
   state.phase = 'character-select';
   state.selectedMapId = null;
+  state.coins = createInitialCoins();
   resetPlayerToCharacterSelect(state.players.player1);
   resetPlayerToCharacterSelect(state.players.player2);
+}
+
+function startDragCoin(state: GameState, actorSlot: PlayerSlot, coinOwner: PlayerSlot, coinType: CoinType): void {
+  const coin = state.coins[coinOwner][coinType];
+  if (coin.draggedBy && coin.draggedBy !== actorSlot) {
+    // Someone else already has it.
+    return;
+  }
+  coin.draggedBy = actorSlot;
+}
+
+function moveCoin(
+  state: GameState,
+  actorSlot: PlayerSlot,
+  coinOwner: PlayerSlot,
+  coinType: CoinType,
+  x: number,
+  y: number,
+): void {
+  const coin = state.coins[coinOwner][coinType];
+  if (coin.draggedBy !== actorSlot) {
+    // Not currently yours to move — ignore (e.g. a stale/out-of-order message).
+    return;
+  }
+  coin.x = Math.max(0, Math.min(100, x));
+  coin.y = Math.max(0, Math.min(100, y));
+}
+
+function endDragCoin(state: GameState, actorSlot: PlayerSlot, coinOwner: PlayerSlot, coinType: CoinType): void {
+  const coin = state.coins[coinOwner][coinType];
+  if (coin.draggedBy === actorSlot) {
+    coin.draggedBy = null;
+  }
 }
 
 export function applyAction(state: GameState, slot: PlayerSlot, action: GameAction): void {
@@ -284,6 +337,15 @@ export function applyAction(state: GameState, slot: PlayerSlot, action: GameActi
     case 'returnToMainMenu':
       returnToMainMenu(state);
       return;
+    case 'startDragCoin':
+      startDragCoin(state, slot, action.coinOwner, action.coinType);
+      return;
+    case 'moveCoin':
+      moveCoin(state, slot, action.coinOwner, action.coinType, action.x, action.y);
+      return;
+    case 'endDragCoin':
+      endDragCoin(state, slot, action.coinOwner, action.coinType);
+      return;
   }
 }
 
@@ -297,7 +359,9 @@ export function buildView(state: GameState, forSlot: PlayerSlot): GameStateView 
 
   return {
     phase: state.phase,
+    mySlot: forSlot,
     selectedMapId: state.selectedMapId,
+    coins: state.coins,
     me: {
       characterId: me.characterId,
       connected: me.connected,

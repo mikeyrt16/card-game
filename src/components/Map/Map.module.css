@@ -1,0 +1,66 @@
+.container {
+  position: fixed;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  /* Behind every other element on the board (all z-index 5+) and the
+     board's own felt background, which stays as a fallback if there's no
+     background image. */
+  z-index: 0;
+}
+
+.background {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  /* Fills the screen edge-to-edge without distorting the image — crops
+     overflow rather than letterboxing. */
+  object-fit: cover;
+  pointer-events: none;
+  filter: brightness(1);
+  transition: filter 0.3s ease;
+}
+
+.dimmed {
+  filter: brightness(0.5);
+}
+
+.coin {
+  position: absolute;
+  width: 56px;
+  height: 56px;
+  padding: 0;
+  border: none;
+  border-radius: 50%;
+  overflow: hidden;
+  background: #111;
+  transform: translate(-50%, -50%);
+  cursor: grab;
+  /* Stops the browser's own touch scroll/zoom gestures from competing with
+     our pointer-event dragging on touchscreens. */
+  touch-action: none;
+  box-shadow: 0 3px 10px rgba(0, 0, 0, 0.6);
+  transition: box-shadow 0.15s ease;
+  z-index: 1;
+}
+
+.coinMinion {
+  width: 42px;
+  height: 42px;
+}
+
+.coinImage {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+  pointer-events: none;
+  user-select: none;
+  -webkit-user-drag: none;
+}
+
+.coinGlowing {
+  box-shadow: 0 0 0 3px rgba(255, 213, 74, 0.6), 0 0 22px 8px rgba(255, 213, 74, 0.65);
+}

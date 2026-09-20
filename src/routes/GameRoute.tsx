@@ -8,11 +8,12 @@ import { ConfirmDialog } from '../components/ConfirmDialog/ConfirmDialog';
 import { InfoButton } from '../components/InfoButton/InfoButton';
 import { CharacterCardDialog } from '../components/CharacterCardDialog/CharacterCardDialog';
 import { GameMenu } from '../components/GameMenu/GameMenu';
+import { Map } from '../components/Map/Map';
 import { toClientCard, type CardData } from '../data/cards';
 import { getCharacter, type Character } from '../data/characters';
 import { MAPS, type MapInfo } from '../data/maps';
 import { useGameConnection } from '../net/GameConnectionProvider';
-import type { GameAction, GameStateView } from '../shared/protocol';
+import type { GameAction, GameStateView, PlayerSlot } from '../shared/protocol';
 import styles from './GameRoute.module.css';
 
 export function GameRoute() {
@@ -90,6 +91,10 @@ function Game({ state, character, map, send }: GameProps) {
   const opponentCharacter = opponent?.characterId ? getCharacter(opponent.characterId) : undefined;
   const opponentDiscardPile = opponent ? opponent.discardPile.map(toClientCard) : [];
   const opponentCardBack = opponentCharacter?.cardBack ?? character.cardBack;
+  const characterIds: Record<PlayerSlot, string | null> =
+    state.mySlot === 'player1'
+      ? { player1: state.me.characterId, player2: opponent?.characterId ?? null }
+      : { player2: state.me.characterId, player1: opponent?.characterId ?? null };
   // The opponent's hand is hidden — only its count is known — so these are
   // placeholder card-backs, not real cards. Stable, index-based ids (rather
   // than fresh ones per render) keep the fan from remounting every render.
@@ -151,11 +156,15 @@ function Game({ state, character, map, send }: GameProps) {
   return (
     <div className={styles.board}>
       {map && (
-        <img
-          src={map.image}
-          alt=""
-          className={isMapDimmed ? `${styles.mapBackground} ${styles.mapBackgroundDimmed}` : styles.mapBackground}
-          draggable={false}
+        <Map
+          image={map.image}
+          dimmed={isMapDimmed}
+          coins={state.coins}
+          mySlot={state.mySlot}
+          characterIds={characterIds}
+          onCoinDragStart={(owner, coinType) => send({ type: 'startDragCoin', coinOwner: owner, coinType })}
+          onCoinMove={(owner, coinType, x, y) => send({ type: 'moveCoin', coinOwner: owner, coinType, x, y })}
+          onCoinDragEnd={(owner, coinType) => send({ type: 'endDragCoin', coinOwner: owner, coinType })}
         />
       )}
       <GameMenu onReturnToMainMenu={() => send({ type: 'returnToMainMenu' })} />

@@ -23,6 +23,11 @@ const mapModules = import.meta.glob('../assets/maps/*.{png,jpg,jpeg,webp}', {
   import: 'default',
 }) as Record<string, string>;
 
+const coinModules = import.meta.glob('../assets/coins/*/*.{png,jpg,jpeg,webp}', {
+  eager: true,
+  import: 'default',
+}) as Record<string, string>;
+
 function indexByCapture(modules: Record<string, string>, pattern: RegExp): Record<string, string> {
   const index: Record<string, string> = {};
   for (const [path, url] of Object.entries(modules)) {
@@ -45,6 +50,7 @@ const characterCardsByCharacter = indexByCapture(
   /\/character-card\/([^/.]+)\.[^./]+$/,
 );
 const mapsBySlug = indexByCapture(mapModules, /\/maps\/([^/.]+)\.[^./]+$/);
+const coinsByKey = indexByCapture(coinModules, /\/coins\/([^/]+\/[^/.]+)\.[^./]+$/);
 
 export function getCardImage(characterId: string, slug: string): string {
   const url = cardImagesByKey[`${characterId}/${slug}`];
@@ -87,6 +93,14 @@ export function getMapImage(mapId: string): string {
   const url = mapsBySlug[mapId];
   if (!url) {
     throw new Error(`Missing map image for ${mapId}`);
+  }
+  return url;
+}
+
+export function getCoinImage(characterId: string, coinType: 'main' | 'minion'): string {
+  const url = coinsByKey[`${characterId}/${coinType}`];
+  if (!url) {
+    throw new Error(`Missing coin image for ${characterId}/${coinType}`);
   }
   return url;
 }

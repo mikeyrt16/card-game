@@ -11,6 +11,20 @@ export type PilePosition = 'top' | 'random' | 'bottom';
  *  level transition, not something each player does independently. */
 export type GamePhase = 'character-select' | 'map-select' | 'playing';
 
+export type CoinType = 'main' | 'minion';
+
+/** Position is percentage coordinates (0-100) relative to the map image's
+ *  own rendered box, so it scales correctly regardless of viewport size.
+ *  Public/shared — both players always see every coin's real position. */
+export interface CoinState {
+  x: number;
+  y: number;
+  /** Which player currently has this coin "picked up" — null if free.
+   *  Only the holder's moveCoin/endDragCoin actions are honored; anyone
+   *  else's startDragCoin is rejected while this is set to someone else. */
+  draggedBy: PlayerSlot | null;
+}
+
 /** A single card instance as it travels over the wire: identifies the card
  *  definition (character + slug) rather than a resolved image URL, since
  *  the server has no knowledge of Vite-bundled asset paths. */
@@ -56,7 +70,14 @@ export type GameAction =
    *  characterId, hand, and piles are cleared so they can reselect from
    *  scratch. Either player can trigger it, same as the other phase
    *  transitions; not gated by the current phase. */
-  | { type: 'returnToMainMenu' };
+  | { type: 'returnToMainMenu' }
+  /** Any player can pick up any coin — a no-op if someone else already
+   *  has it. coinOwner identifies *whose* coin it is, not who's dragging it. */
+  | { type: 'startDragCoin'; coinOwner: PlayerSlot; coinType: CoinType }
+  /** Only honored from whoever currently holds the coin (per draggedBy);
+   *  sent continuously (rate-limited client-side) while dragging. */
+  | { type: 'moveCoin'; coinOwner: PlayerSlot; coinType: CoinType; x: number; y: number }
+  | { type: 'endDragCoin'; coinOwner: PlayerSlot; coinType: CoinType };
 
 export type ClientAction = HelloMessage | GameAction;
 
@@ -71,9 +92,17 @@ export interface PlayerView {
 
 export interface GameStateView {
   phase: GamePhase;
+  /** Which slot the receiving connection is — coins are keyed by slot and
+   *  fully public (unlike hand/drawPile), so the client needs this to tell
+   *  "my coin" apart from "opponent's coin" and to know whether it's the
+   *  one currently holding a given coin. */
+  mySlot: PlayerSlot;
   /** Shared between both players — set via selectMap, null until either
    *  player has picked one. */
   selectedMapId: string | null;
+  /** Fully public/shared — both players always see every coin's real
+   *  position and drag state, identically. */
+  coins: Record<PlayerSlot, Record<CoinType, CoinState>>;
   /** The receiving player's own board — hand and the draw pile's actual
    *  contents are only ever sent to their owner, for a deliberate "look
    *  through your deck" view; the opponent's stay hidden as counts. */
