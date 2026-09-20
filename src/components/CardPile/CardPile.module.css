@@ -55,6 +55,22 @@
   left: 162px;
 }
 
+/* Mirrors placementDraw/placementDiscard into the opposite corner for the
+   opponent's own piles — bottom must be cancelled since .pile's base rule
+   sets it, and top+bottom together (with no explicit height) would stretch
+   the box instead of sizing it from width/aspect-ratio. */
+.placementOpponentDraw {
+  top: 20px;
+  right: 32px;
+  bottom: auto;
+}
+
+.placementOpponentDiscard {
+  top: 20px;
+  right: 162px;
+  bottom: auto;
+}
+
 .count {
   position: absolute;
   top: 0;

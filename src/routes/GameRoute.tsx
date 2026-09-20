@@ -4,7 +4,6 @@ import { CardPile } from '../components/CardPile/CardPile';
 import { PileDropZone, type PilePosition } from '../components/PileDropZone/PileDropZone';
 import { DropZone } from '../components/DropZone/DropZone';
 import { PlayerHand } from '../components/PlayerHand/PlayerHand';
-import { OpponentPanel } from '../components/OpponentPanel/OpponentPanel';
 import { ConfirmDialog } from '../components/ConfirmDialog/ConfirmDialog';
 import { toClientCard, type CardData } from '../data/cards';
 import { getCharacter, type Character } from '../data/characters';
@@ -77,7 +76,14 @@ function Game({ state, character, send }: GameProps) {
   const opponent = state.opponent;
   const opponentCharacter = opponent?.characterId ? getCharacter(opponent.characterId) : undefined;
   const opponentDiscardPile = opponent ? opponent.discardPile.map(toClientCard) : [];
-  const opponentPlayedCard = opponent?.playedCard ? toClientCard(opponent.playedCard) : null;
+  const opponentCardBack = opponentCharacter?.cardBack ?? character.cardBack;
+  // The opponent's hand is hidden — only its count is known — so these are
+  // placeholder card-backs, not real cards. Stable, index-based ids (rather
+  // than fresh ones per render) keep the fan from remounting every render.
+  const opponentHand: CardData[] = Array.from({ length: opponent?.handCount ?? 0 }, (_, i) => ({
+    id: `opponent-hand-${i}`,
+    image: opponentCardBack,
+  }));
 
   // Each preview can only ever be open on a non-empty pile — if a pile
   // empties out from under it (last card dragged away), close it.
@@ -131,14 +137,24 @@ function Game({ state, character, send }: GameProps) {
 
   return (
     <div className={styles.board}>
-      <OpponentPanel
-        characterName={opponentCharacter?.name ?? null}
-        connected={opponent?.connected ?? false}
-        cardBack={opponentCharacter?.cardBack ?? character.cardBack}
-        handCount={opponent?.handCount ?? 0}
-        drawPileCount={opponent?.drawPileCount ?? 0}
-        discardPile={opponentDiscardPile}
-        playedCard={opponentPlayedCard}
+      {/* Opponent's board, mirrored upside-down at the top — same
+          components as our own piles/hand, just repositioned/read-only. */}
+      <PlayerHand cards={opponentHand} variant="opponent" interactive={false} />
+      <CardPile
+        count={opponent?.drawPileCount ?? 0}
+        image={opponentCardBack}
+        ariaLabel={`Opponent's deck (${opponent?.drawPileCount ?? 0} remaining)`}
+        placement="opponent-draw"
+        onClick={() => {}}
+        disabled
+      />
+      <CardPile
+        count={opponentDiscardPile.length}
+        image={opponentDiscardPile[0]?.image ?? ''}
+        ariaLabel={`Opponent's discard pile (${opponentDiscardPile.length} cards)`}
+        placement="opponent-discard"
+        onClick={() => {}}
+        disabled
       />
       <PlayerHand
         cards={hand}

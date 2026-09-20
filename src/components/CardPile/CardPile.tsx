@@ -5,7 +5,7 @@ interface CardPileProps {
   count: number;
   image: string;
   ariaLabel: string;
-  placement: 'draw' | 'discard';
+  placement: 'draw' | 'discard' | 'opponent-draw' | 'opponent-discard';
   onClick: () => void;
   /** Blocks the click-to-draw button only — a separate PileDropZone handles
    *  drag-and-drop onto this pile and isn't affected by this. */
@@ -54,7 +54,12 @@ export function CardPile({
       ? Math.min(BASE_LAYER_OFFSET_PX, (MAX_PILE_WIDTH_PX - CARD_WIDTH_PX) / (count - 1))
       : BASE_LAYER_OFFSET_PX;
 
-  const placementClass = placement === 'draw' ? styles.placementDraw : styles.placementDiscard;
+  const placementClass = {
+    draw: styles.placementDraw,
+    discard: styles.placementDiscard,
+    'opponent-draw': styles.placementOpponentDraw,
+    'opponent-discard': styles.placementOpponentDiscard,
+  }[placement];
 
   return (
     <div

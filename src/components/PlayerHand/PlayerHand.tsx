@@ -5,8 +5,9 @@ import styles from './PlayerHand.module.css';
 interface PlayerHandProps {
   cards: CardData[];
   /** 'hand' (default) anchors to the bottom of the screen; 'preview' centers
-   *  it, for showing a fanned-out read of a non-hand pile (e.g. discard). */
-  variant?: 'hand' | 'preview';
+   *  it, for showing a fanned-out read of a non-hand pile (e.g. discard);
+   *  'opponent' anchors to the top of the screen, rotated 180deg. */
+  variant?: 'hand' | 'preview' | 'opponent';
   /** When false, cards can't be hovered/focused or dragged — the hand stays
    *  a valid drop target but is otherwise inert. Default true. */
   interactive?: boolean;
@@ -129,7 +130,9 @@ export function PlayerHand({
       ? Math.min(BASE_CARD_SPACING_PX, (MAX_HAND_WIDTH_PX - CARD_WIDTH_PX) / (cards.length - 1))
       : BASE_CARD_SPACING_PX;
 
-  const handClassName = variant === 'preview' ? `${styles.hand} ${styles.handPreview}` : styles.hand;
+  const handVariantClass =
+    variant === 'preview' ? styles.handPreview : variant === 'opponent' ? styles.handOpponent : '';
+  const handClassName = `${styles.hand} ${handVariantClass}`.trim();
   const canReceiveDrag = Boolean(effectiveDraggedCardId) || Boolean(incomingCard);
 
   const handleDragOver = (e: DragEvent<HTMLDivElement>) => {

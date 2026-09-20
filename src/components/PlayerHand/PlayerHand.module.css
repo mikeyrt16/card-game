@@ -36,6 +36,26 @@
   z-index: 60;
 }
 
+.handOpponent {
+  bottom: auto;
+  top: 0;
+  /* Mirrors .hand's margin-bottom: -60px, pulling the fan's anchor point
+     the same 60px past the true screen edge, just from the top instead. */
+  margin-bottom: 0;
+  margin-top: -200px;
+  /* Same reasoning as .handPreview — never shown empty, so no hit-area floor
+     is needed (and this fan is read-only, so it was never a drop target
+     anyway — see pointer-events below). */
+  min-height: 0;
+  /* Rotating the whole fan (not just its cards) flips both the arc and each
+     card in one move, so it reads as "the same fan, upside down" rather
+     than needing separately mirrored position/rotation math. */
+  transform: rotate(180deg);
+  /* Read-only — never intercepts drags/clicks meant for the board beneath it. */
+  pointer-events: none;
+  z-index: 10;
+}
+
 .slot,
 .cardSlot {
   position: absolute;
