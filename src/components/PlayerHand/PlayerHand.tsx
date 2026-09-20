@@ -1,4 +1,4 @@
-import { Fragment, useRef, useState, type CSSProperties, type DragEvent } from 'react';
+import { useRef, useState, type CSSProperties, type DragEvent } from 'react';
 import type { CardData } from '../../data/cards';
 import styles from './PlayerHand.module.css';
 
@@ -216,6 +216,91 @@ export function PlayerHand({
       onDrop={handleDrop}
       onDragLeave={handleDragLeave}
     >
+      {/* Invisible native drag sources — one per card actually in `cards`,
+          positioned from the static (never-reordered-for-preview) geometry.
+          Kept as a list separate from the visual fan below and keyed
+          identically to it, so a card's own drag-source node is never
+          unmounted mid-gesture just because the *visual* layer hid or
+          reordered it elsewhere (e.g. isDraggedAway closing the fan's gap).
+          Losing that mount would mean the browser can never fire this
+          card's dragend again — dropped somewhere that doesn't handle it,
+          it would stay invisible forever instead of snapping back. */}
+      {cards.map((card, i) => {
+        const offset = i - staticCenter;
+        const normalized = staticCenter > 0 ? offset / staticCenter : 0;
+        const positionStyle = {
+          '--rotate': `${normalized * MAX_ROTATION_DEG}deg`,
+          '--translate-x': `${offset * staticCardSpacing}px`,
+          '--translate-y': `${normalized * normalized * MAX_ARC_RISE_PX}px`,
+        } as CSSProperties;
+
+        return (
+          <div
+            key={card.id}
+            className={styles.slot}
+            style={{ ...positionStyle, zIndex: i, pointerEvents: interactive ? undefined : 'none' }}
+            draggable={interactive}
+            onDragStart={
+              interactive
+                ? (e) => {
+                    e.dataTransfer.setData('text/plain', card.id);
+                    e.dataTransfer.effectAllowed = 'move';
+
+                    const width = CARD_WIDTH_PX * DRAG_PREVIEW_SCALE;
+                    const height = width * CARD_ASPECT_RATIO;
+                    const ghost = document.createElement('img');
+                    ghost.src = card.image;
+                    ghost.style.position = 'fixed';
+                    ghost.style.top = '-9999px';
+                    ghost.style.left = '-9999px';
+                    ghost.style.width = `${width}px`;
+                    ghost.style.height = `${height}px`;
+                    ghost.style.objectFit = 'cover';
+                    ghost.style.borderRadius = '12px';
+                    ghost.style.opacity = '0.35';
+                    document.body.appendChild(ghost);
+                    // Anchor the cursor near the top of the ghost (rather than
+                    // centered) so the ghost trails below the cursor instead of
+                    // fully covering whatever drop target the cursor is over —
+                    // native drag images always paint above the page, so this is
+                    // the only way to keep the target underneath legible.
+                    e.dataTransfer.setDragImage(ghost, width / 2, 16);
+                    window.setTimeout(() => ghost.remove(), 0);
+
+                    setFocusedCardId(null);
+                    setDraggedCardId(card.id);
+                    setDragOverCardId(null);
+                    setIsDraggedAway(false);
+                    setIsIncomingHovered(false);
+                    setIncomingInsertIndex(null);
+                    onCardDragStart?.(card);
+                  }
+                : undefined
+            }
+            onDragEnd={
+              interactive
+                ? () => {
+                    setDraggedCardId(null);
+                    setDragOverCardId(null);
+                    setIsDraggedAway(false);
+                    // handleDragOver sets this true during a purely local
+                    // reorder drag too (the pointer never leaves this
+                    // container), but nothing resets it once that drag
+                    // ends — left stale true, it would wrongly satisfy the
+                    // incomingCard-preview gate the instant *any* later
+                    // drag starts anywhere, even one nowhere near this
+                    // hand (e.g. reordering the discard preview).
+                    setIsIncomingHovered(false);
+                    setIncomingInsertIndex(null);
+                    onCardDragEnd?.();
+                  }
+                : undefined
+            }
+            onMouseEnter={interactive ? () => setFocusedCardId(card.id) : undefined}
+            onMouseLeave={interactive ? () => setFocusedCardId(null) : undefined}
+          />
+        );
+      })}
       {displayCards.map((card, i) => {
         const offset = i - center;
         const normalized = center > 0 ? offset / center : 0;
@@ -232,84 +317,16 @@ export function PlayerHand({
         } as CSSProperties;
 
         return (
-          <Fragment key={card.id}>
-            <div
-              className={styles.slot}
-              style={{
-                ...positionStyle,
-                zIndex: i,
-                pointerEvents: interactive && !isIncoming ? undefined : 'none',
-              }}
-              draggable={interactive && !isIncoming}
-              onDragStart={
-                interactive && !isIncoming
-                  ? (e) => {
-                      e.dataTransfer.setData('text/plain', card.id);
-                      e.dataTransfer.effectAllowed = 'move';
-
-                      const width = CARD_WIDTH_PX * DRAG_PREVIEW_SCALE;
-                      const height = width * CARD_ASPECT_RATIO;
-                      const ghost = document.createElement('img');
-                      ghost.src = card.image;
-                      ghost.style.position = 'fixed';
-                      ghost.style.top = '-9999px';
-                      ghost.style.left = '-9999px';
-                      ghost.style.width = `${width}px`;
-                      ghost.style.height = `${height}px`;
-                      ghost.style.objectFit = 'cover';
-                      ghost.style.borderRadius = '12px';
-                      ghost.style.opacity = '0.35';
-                      document.body.appendChild(ghost);
-                      // Anchor the cursor near the top of the ghost (rather than
-                      // centered) so the ghost trails below the cursor instead of
-                      // fully covering whatever drop target the cursor is over —
-                      // native drag images always paint above the page, so this is
-                      // the only way to keep the target underneath legible.
-                      e.dataTransfer.setDragImage(ghost, width / 2, 16);
-                      window.setTimeout(() => ghost.remove(), 0);
-
-                      setFocusedCardId(null);
-                      setDraggedCardId(card.id);
-                      setDragOverCardId(null);
-                      setIsDraggedAway(false);
-                      setIsIncomingHovered(false);
-                      setIncomingInsertIndex(null);
-                      onCardDragStart?.(card);
-                    }
-                  : undefined
-              }
-              onDragEnd={
-                interactive && !isIncoming
-                  ? () => {
-                      setDraggedCardId(null);
-                      setDragOverCardId(null);
-                      setIsDraggedAway(false);
-                      // handleDragOver sets this true during a purely local
-                      // reorder drag too (the pointer never leaves this
-                      // container), but nothing resets it once that drag
-                      // ends — left stale true, it would wrongly satisfy the
-                      // incomingCard-preview gate the instant *any* later
-                      // drag starts anywhere, even one nowhere near this
-                      // hand (e.g. reordering the discard preview).
-                      setIsIncomingHovered(false);
-                      setIncomingInsertIndex(null);
-                      onCardDragEnd?.();
-                    }
-                  : undefined
-              }
-              onMouseEnter={interactive && !isIncoming ? () => setFocusedCardId(card.id) : undefined}
-              onMouseLeave={interactive && !isIncoming ? () => setFocusedCardId(null) : undefined}
-            />
-            <div
-              data-testid="hand-card"
-              className={styles.cardSlot}
-              style={{ ...positionStyle, zIndex: isFocused ? displayCards.length : i }}
-            >
-              <div className={isFocused ? `${styles.card} ${styles.focused}` : styles.card}>
-                <img src={card.image} alt="" className={styles.cardImage} draggable={false} />
-              </div>
+          <div
+            key={card.id}
+            data-testid="hand-card"
+            className={styles.cardSlot}
+            style={{ ...positionStyle, zIndex: isFocused ? displayCards.length : i }}
+          >
+            <div className={isFocused ? `${styles.card} ${styles.focused}` : styles.card}>
+              <img src={card.image} alt="" className={styles.cardImage} draggable={false} />
             </div>
-          </Fragment>
+          </div>
         );
       })}
     </div>
