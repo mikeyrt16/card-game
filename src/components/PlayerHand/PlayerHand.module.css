@@ -20,7 +20,10 @@
 
 .handPreview {
   bottom: auto;
-  top: 50%;
+  /* Shared by both the draw-pile and discard-pile previews (both use
+     variant="preview"), so this single anchor keeps them at the same Y
+     position by construction rather than needing to be kept in sync by hand. */
+  top: calc(50% + 150px);
   margin-bottom: 0;
   /* Unlike .hand, this container never needs a hit-area floor for an empty
      state (the preview is never shown when its pile is empty). Without this
