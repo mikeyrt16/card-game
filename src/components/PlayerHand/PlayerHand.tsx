@@ -18,8 +18,9 @@ interface PlayerHandProps {
   onCardDragEnd?: () => void;
   onReorder?: (reordered: CardData[]) => void;
   /** Called when a card not already among `cards` is dropped anywhere on
-   *  this hand (e.g. dragged in from a discard-pile preview). */
-  onExternalDrop?: (cardId: string) => void;
+   *  this hand (e.g. dragged in from a discard-pile preview). `index` is
+   *  where in `cards` it was hovered when dropped. */
+  onExternalDrop?: (cardId: string, index: number) => void;
 }
 
 function reorder(cards: CardData[], fromId: string, toId: string): CardData[] {
@@ -62,15 +63,56 @@ export function PlayerHand({
   // (hovering a card moves it away from the pointer, which un-hovers it,
   // which moves it back, forever) — pure position math has no such loop.
   const [dragOverCardId, setDragOverCardId] = useState<string | null>(null);
+  // True once the pointer has actually left this fan's own bounding box
+  // during a drag of one of its own cards (set only by handleDragLeave,
+  // cleared by handleDragOver). Deliberately NOT derived from
+  // `dragOverCardId === null`: that's also true for the single synchronous
+  // render right after dragStart, before the browser's first dragover
+  // fires — hiding the card there would unmount its own DOM node (the
+  // native drag source) mid-dragstart, which silently aborts the entire
+  // native drag (no ghost image, no further dragover/drop at all).
+  const [isDraggedAway, setIsDraggedAway] = useState(false);
+  // True only while the pointer is actually over *this* container during an
+  // incoming (cross-instance) drag — set by handleDragOver, cleared by
+  // handleDragLeave. `incomingCard` alone isn't enough to gate the preview
+  // below: it's set the instant a drag starts on *either* PlayerHand
+  // instance (the dragged card is lifted to shared state in GameRoute so
+  // dataTransfer's payload can't be relied on mid-drag), so without this a
+  // card merely being reordered within the discard preview would also
+  // splice a ghost copy into the real hand the whole time, never having
+  // been anywhere near it.
+  const [isIncomingHovered, setIsIncomingHovered] = useState(false);
+  // Where an incoming (cross-instance) card would land if dropped right
+  // now — an index into `cards`, computed the same way as dragOverCardId
+  // (pure position math against static geometry), just expressed as an
+  // insertion point rather than a swap target since the card isn't
+  // actually part of `cards` yet.
+  const [incomingInsertIndex, setIncomingInsertIndex] = useState<number | null>(null);
   const handRef = useRef<HTMLDivElement>(null);
 
+  // A drop onto an external target (discard pile, draw pile, play zone —
+  // anything outside this component's own container) unmounts the dragged
+  // card's slot the instant `cards` no longer contains it, which happens
+  // *before* the browser gets a chance to fire the native dragend that
+  // would otherwise reset draggedCardId below — an element that's already
+  // gone from the DOM never receives it. Rather than reset that state
+  // imperatively (which needs an effect, and so an extra render), just
+  // derive "is the card I started dragging still actually here" on every
+  // render — a stale id from a vanished card is then ignored everywhere
+  // below without waiting for anything to catch the unmount.
+  const effectiveDraggedCardId = draggedCardId && cards.some((c) => c.id === draggedCardId) ? draggedCardId : null;
+
   let displayCards = cards;
-  if (draggedCardId && dragOverCardId && dragOverCardId !== draggedCardId) {
-    displayCards = reorder(cards, draggedCardId, dragOverCardId);
-  } else if (incomingCard) {
-    const hoveredIndex = dragOverCardId ? cards.findIndex((c) => c.id === dragOverCardId) : -1;
-    const insertAt = hoveredIndex === -1 ? cards.length : hoveredIndex;
-    displayCards = [...cards.slice(0, insertAt), incomingCard, ...cards.slice(insertAt)];
+  if (effectiveDraggedCardId && isDraggedAway) {
+    // e.g. dragging a discard-preview card toward the hand. Hide it here so
+    // it doesn't render in both places at once; it reappears if the drag
+    // returns to this fan.
+    displayCards = cards.filter((c) => c.id !== effectiveDraggedCardId);
+  } else if (effectiveDraggedCardId && dragOverCardId && dragOverCardId !== effectiveDraggedCardId) {
+    displayCards = reorder(cards, effectiveDraggedCardId, dragOverCardId);
+  } else if (incomingCard && isIncomingHovered) {
+    const index = incomingInsertIndex ?? cards.length;
+    displayCards = [...cards.slice(0, index), incomingCard, ...cards.slice(index)];
   }
 
   const center = (displayCards.length - 1) / 2;
@@ -88,7 +130,7 @@ export function PlayerHand({
       : BASE_CARD_SPACING_PX;
 
   const handClassName = variant === 'preview' ? `${styles.hand} ${styles.handPreview}` : styles.hand;
-  const canReceiveDrag = Boolean(draggedCardId) || Boolean(incomingCard);
+  const canReceiveDrag = Boolean(effectiveDraggedCardId) || Boolean(incomingCard);
 
   const handleDragOver = (e: DragEvent<HTMLDivElement>) => {
     if (!canReceiveDrag) {
@@ -99,22 +141,38 @@ export function PlayerHand({
     if (!rect) {
       return;
     }
+    setIsDraggedAway(false);
+    setIsIncomingHovered(true);
     const relativeX = e.clientX - (rect.left + rect.width / 2);
-    let closestId: string | null = null;
-    let closestDistance = Infinity;
-    // The dragged card's own original slot is a valid target too — hovering
-    // it sets dragOverCardId === draggedCardId, which the display logic
-    // below already treats as "no swap". Excluding it here would leave a
-    // gap in the fan the pointer could never actually land on.
-    cards.forEach((c, i) => {
-      const expectedX = (i - staticCenter) * staticCardSpacing;
-      const distance = Math.abs(expectedX - relativeX);
-      if (distance < closestDistance) {
-        closestDistance = distance;
-        closestId = c.id;
-      }
-    });
-    setDragOverCardId(closestId);
+
+    if (effectiveDraggedCardId) {
+      let closestId: string | null = null;
+      let closestDistance = Infinity;
+      // The dragged card's own original slot is a valid target too — hovering
+      // it sets dragOverCardId === draggedCardId, which the display logic
+      // below already treats as "no swap". Excluding it here would leave a
+      // gap in the fan the pointer could never actually land on.
+      cards.forEach((c, i) => {
+        const expectedX = (i - staticCenter) * staticCardSpacing;
+        const distance = Math.abs(expectedX - relativeX);
+        if (distance < closestDistance) {
+          closestDistance = distance;
+          closestId = c.id;
+        }
+      });
+      setDragOverCardId(closestId);
+    } else if (incomingCard) {
+      // Count how many existing cards sit left of the pointer — that's the
+      // index the incoming card would land at if dropped here.
+      let index = 0;
+      cards.forEach((_, i) => {
+        const expectedX = (i - staticCenter) * staticCardSpacing;
+        if (expectedX < relativeX) {
+          index = i + 1;
+        }
+      });
+      setIncomingInsertIndex(index);
+    }
   };
 
   const handleDrop = (e: DragEvent<HTMLDivElement>) => {
@@ -122,15 +180,17 @@ export function PlayerHand({
       return;
     }
     e.preventDefault();
-    if (draggedCardId && dragOverCardId && dragOverCardId !== draggedCardId) {
-      onReorder?.(reorder(cards, draggedCardId, dragOverCardId));
+    if (effectiveDraggedCardId && dragOverCardId && dragOverCardId !== effectiveDraggedCardId) {
+      onReorder?.(reorder(cards, effectiveDraggedCardId, dragOverCardId));
     } else if (incomingCard) {
       const cardId = e.dataTransfer.getData('text/plain');
       if (cardId) {
-        onExternalDrop?.(cardId);
+        onExternalDrop?.(cardId, incomingInsertIndex ?? cards.length);
       }
     }
     setDragOverCardId(null);
+    setIsIncomingHovered(false);
+    setIncomingInsertIndex(null);
   };
 
   const handleDragLeave = (e: DragEvent<HTMLDivElement>) => {
@@ -140,6 +200,11 @@ export function PlayerHand({
     const related = e.relatedTarget as Node | null;
     if (!related || !e.currentTarget.contains(related)) {
       setDragOverCardId(null);
+      setIsIncomingHovered(false);
+      setIncomingInsertIndex(null);
+      if (effectiveDraggedCardId) {
+        setIsDraggedAway(true);
+      }
     }
   };
 
@@ -206,6 +271,9 @@ export function PlayerHand({
                       setFocusedCardId(null);
                       setDraggedCardId(card.id);
                       setDragOverCardId(null);
+                      setIsDraggedAway(false);
+                      setIsIncomingHovered(false);
+                      setIncomingInsertIndex(null);
                       onCardDragStart?.(card);
                     }
                   : undefined
@@ -215,6 +283,16 @@ export function PlayerHand({
                   ? () => {
                       setDraggedCardId(null);
                       setDragOverCardId(null);
+                      setIsDraggedAway(false);
+                      // handleDragOver sets this true during a purely local
+                      // reorder drag too (the pointer never leaves this
+                      // container), but nothing resets it once that drag
+                      // ends — left stale true, it would wrongly satisfy the
+                      // incomingCard-preview gate the instant *any* later
+                      // drag starts anywhere, even one nowhere near this
+                      // hand (e.g. reordering the discard preview).
+                      setIsIncomingHovered(false);
+                      setIncomingInsertIndex(null);
                       onCardDragEnd?.();
                     }
                   : undefined

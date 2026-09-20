@@ -1,155 +1,112 @@
-import { useState } from 'react';
-import { Navigate, useParams } from 'react-router-dom';
+import { useEffect, useState } from 'react';
+import { Navigate } from 'react-router-dom';
 import { CardPile } from '../components/CardPile/CardPile';
 import { PileDropZone, type PilePosition } from '../components/PileDropZone/PileDropZone';
 import { DropZone } from '../components/DropZone/DropZone';
 import { PlayerHand } from '../components/PlayerHand/PlayerHand';
-import type { CardData } from '../data/cards';
-import { buildCharacterDeck, getCharacter, shuffle, type Character } from '../data/characters';
+import { OpponentPanel } from '../components/OpponentPanel/OpponentPanel';
+import { toClientCard, type CardData } from '../data/cards';
+import { getCharacter, type Character } from '../data/characters';
+import { useGameConnection } from '../net/GameConnectionProvider';
+import type { GameAction, GameStateView } from '../shared/protocol';
 import styles from './GameRoute.module.css';
 
-const INITIAL_HAND_SIZE = 5;
-
 export function GameRoute() {
-  const { characterId } = useParams<{ characterId: string }>();
-  const character = getCharacter(characterId);
+  const { state, status, error, send } = useGameConnection();
 
-  if (!character) {
+  if (error) {
+    return (
+      <div className={styles.board}>
+        <p className={styles.status}>{error}</p>
+      </div>
+    );
+  }
+
+  if (!state) {
+    return (
+      <div className={styles.board}>
+        <p className={styles.status}>{status === 'closed' ? 'Reconnecting…' : 'Connecting…'}</p>
+      </div>
+    );
+  }
+
+  if (!state.me.characterId) {
     return <Navigate to="/select" replace />;
   }
 
-  return <Game character={character} />;
+  if (state.phase === 'selecting') {
+    return (
+      <div className={styles.board}>
+        <p className={styles.status}>Waiting for opponent to join…</p>
+      </div>
+    );
+  }
+
+  // characterId is guaranteed present by the game server, which only ever
+  // sets it from the same catalog this client uses.
+  const character = getCharacter(state.me.characterId)!;
+
+  return <Game state={state} character={character} send={send} />;
 }
 
 interface GameProps {
+  state: GameStateView;
   character: Character;
+  send: (action: GameAction) => void;
 }
 
-function insertAtPosition(pile: CardData[], card: CardData, position: PilePosition): CardData[] {
-  if (position === 'top') {
-    return [card, ...pile];
-  }
-  if (position === 'bottom') {
-    return [...pile, card];
-  }
-  const index = Math.floor(Math.random() * (pile.length + 1));
-  return [...pile.slice(0, index), card, ...pile.slice(index)];
-}
-
-function Game({ character }: GameProps) {
-  const [deck] = useState(() => buildCharacterDeck(character));
-  const [initialHand] = useState(() => deck.slice(0, INITIAL_HAND_SIZE));
-  const [drawPile, setDrawPile] = useState(() => deck.slice(INITIAL_HAND_SIZE));
-  const [discardPile, setDiscardPile] = useState<CardData[]>([]);
-  const [drawnCards, setDrawnCards] = useState<CardData[]>([]);
-  const [playedCard, setPlayedCard] = useState<CardData | null>(null);
+function Game({ state, character, send }: GameProps) {
   const [isDragActive, setIsDragActive] = useState(false);
-  const [handOrder, setHandOrder] = useState<string[]>([]);
-  const [isViewingDiscard, setIsViewingDiscard] = useState(false);
   // The actual card currently being dragged, from either hand — lets the
   // real hand show a live "where this would land" preview for a card
   // dragged in from the discard-pile preview (dataTransfer's payload isn't
   // readable during dragover/dragenter, only at drop, so this has to be
   // tracked as real state rather than read off the native drag event).
   const [draggedCard, setDraggedCard] = useState<CardData | null>(null);
+  const [isViewingDiscard, setIsViewingDiscard] = useState(false);
 
-  const drawPileIds = new Set(drawPile.map((card) => card.id));
-  const discardPileIds = new Set(discardPile.map((card) => card.id));
-  // A card can move hand -> a pile -> hand again. Once that's happened, its
-  // position should come from `drawnCards` (append-ordered, so the most
-  // recent draw lands at the end) rather than its original slot in
-  // `initialHand` — so exclude it from that portion entirely once drawn.
-  const drawnCardIds = new Set(drawnCards.map((card) => card.id));
-  const naturalHand = [
-    ...initialHand.filter((card) => !drawnCardIds.has(card.id)),
-    ...drawnCards,
-  ].filter(
-    (card) => card.id !== playedCard?.id && !drawPileIds.has(card.id) && !discardPileIds.has(card.id),
-  );
+  const hand = state.me.hand.map(toClientCard);
+  const discardPile = state.me.discardPile.map(toClientCard);
+  const playedCard = state.me.playedCard ? toClientCard(state.me.playedCard) : null;
 
-  // handOrder is a user-arranged preference: keep ids still in the hand (in
-  // their preferred order) and append any newly available ids at the end.
-  const cardById = new Map(naturalHand.map((card) => [card.id, card]));
-  const orderedIds = handOrder.filter((id) => cardById.has(id));
-  const orderedIdSet = new Set(orderedIds);
-  for (const card of naturalHand) {
-    if (!orderedIdSet.has(card.id)) {
-      orderedIds.push(card.id);
-      orderedIdSet.add(card.id);
+  const opponent = state.opponent;
+  const opponentCharacter = opponent?.characterId ? getCharacter(opponent.characterId) : undefined;
+  const opponentDiscardPile = opponent ? opponent.discardPile.map(toClientCard) : [];
+  const opponentPlayedCard = opponent?.playedCard ? toClientCard(opponent.playedCard) : null;
+
+  // The discard preview can only ever be open on a non-empty pile — if the
+  // pile empties out from under it (last card dragged away), close it.
+  useEffect(() => {
+    if (discardPile.length === 0 && isViewingDiscard) {
+      setIsViewingDiscard(false);
     }
-  }
-  const hand = orderedIds.map((id) => cardById.get(id)!);
+  }, [discardPile.length, isViewingDiscard]);
 
-  const handleDraw = () => {
-    if (drawPile.length === 0) {
-      return;
-    }
-    const [topCard, ...rest] = drawPile;
-    setDrawPile(rest);
-    setDrawnCards((cards) => [...cards, topCard]);
-  };
-
-  const handleReturnFromDiscard = () => {
-    if (discardPile.length === 0) {
-      return;
-    }
-    const [topCard, ...rest] = discardPile;
-    setDiscardPile(rest);
-    setDrawnCards((cards) => [...cards, topCard]);
-  };
+  const handleDraw = () => send({ type: 'draw' });
+  const handleReturnFromDiscard = () => send({ type: 'returnFromDiscard' });
+  const handleShuffleDiscardPile = () => send({ type: 'shuffleDiscard' });
 
   const handleDropCard = (cardId: string) => {
     // The dropped card's hand slot unmounts immediately, so its native
     // dragend never fires — reset the drag-active flag here instead.
     setIsDragActive(false);
     setDraggedCard(null);
-    if (playedCard) {
-      return;
-    }
-    const card = hand.find((c) => c.id === cardId);
-    if (card) {
-      setPlayedCard(card);
-    }
+    send({ type: 'playCard', cardId });
   };
-
-  // A dragged card can come from the hand or (while previewing it) the
-  // discard pile itself — check both.
-  const findDraggableCard = (cardId: string) =>
-    hand.find((c) => c.id === cardId) ?? discardPile.find((c) => c.id === cardId);
 
   const handleDropOnDrawPile = (cardId: string, position: PilePosition) => {
     setIsDragActive(false);
     setDraggedCard(null);
-    const card = findDraggableCard(cardId);
-    if (!card) {
-      return;
-    }
-    setDrawPile((pile) => insertAtPosition(pile, card, position));
-    const wasLastDiscardedCard = discardPile.length === 1 && discardPile[0].id === cardId;
-    setDiscardPile((pile) => pile.filter((c) => c.id !== cardId));
-    if (wasLastDiscardedCard) {
-      setIsViewingDiscard(false);
-    }
-    // Forget this card's old hand position — if it comes back to the hand
-    // later it should land at the end like any other freshly drawn card,
-    // not snap back to where it used to sit.
-    setHandOrder((order) => order.filter((id) => id !== cardId));
+    send({ type: 'dropOnDrawPile', cardId, position });
   };
 
   const handleDropOnDiscardPile = (cardId: string, position: PilePosition) => {
     setIsDragActive(false);
     setDraggedCard(null);
-    const card = findDraggableCard(cardId);
-    if (!card) {
-      return;
-    }
-    // Drop the existing occurrence first — the card may already be in the
-    // discard pile (reordering via the bands while previewing it).
-    setDiscardPile((pile) => insertAtPosition(pile.filter((c) => c.id !== cardId), card, position));
-    setHandOrder((order) => order.filter((id) => id !== cardId));
+    send({ type: 'dropOnDiscardPile', cardId, position });
   };
 
-  const handleDropOntoHand = (cardId: string) => {
+  const handleDropOntoHand = (cardId: string, index: number) => {
     setIsDragActive(false);
     setDraggedCard(null);
     if (hand.some((c) => c.id === cardId)) {
@@ -157,23 +114,20 @@ function Game({ character }: GameProps) {
       // already applied live via onReorder while dragging.
       return;
     }
-    const card = discardPile.find((c) => c.id === cardId);
-    if (!card) {
-      return;
-    }
-    setDiscardPile((pile) => pile.filter((c) => c.id !== cardId));
-    setDrawnCards((cards) => [...cards, card]);
-    if (discardPile.length === 1) {
-      setIsViewingDiscard(false);
-    }
-  };
-
-  const handleShuffleDiscardPile = () => {
-    setDiscardPile((pile) => shuffle(pile));
+    send({ type: 'dropOntoHand', cardId, index });
   };
 
   return (
     <div className={styles.board}>
+      <OpponentPanel
+        characterName={opponentCharacter?.name ?? null}
+        connected={opponent?.connected ?? false}
+        cardBack={opponentCharacter?.cardBack ?? character.cardBack}
+        handCount={opponent?.handCount ?? 0}
+        drawPileCount={opponent?.drawPileCount ?? 0}
+        discardPile={opponentDiscardPile}
+        playedCard={opponentPlayedCard}
+      />
       <PlayerHand
         cards={hand}
         interactive={!isViewingDiscard}
@@ -186,13 +140,13 @@ function Game({ character }: GameProps) {
           setIsDragActive(false);
           setDraggedCard(null);
         }}
-        onReorder={(reordered) => setHandOrder(reordered.map((card) => card.id))}
+        onReorder={(reordered) => send({ type: 'reorderHand', order: reordered.map((card) => card.id) })}
         onExternalDrop={handleDropOntoHand}
       />
       <CardPile
-        count={drawPile.length}
+        count={state.me.drawPileCount}
         image={character.cardBack}
-        ariaLabel={`Draw a card (${drawPile.length} remaining)`}
+        ariaLabel={`Draw a card (${state.me.drawPileCount} remaining)`}
         placement="draw"
         onClick={handleDraw}
         disabled={isViewingDiscard}
@@ -218,7 +172,7 @@ function Game({ character }: GameProps) {
         playedCard={playedCard}
         isDragActive={isDragActive && !isViewingDiscard}
         onDropCard={handleDropCard}
-        onRemoveCard={() => setPlayedCard(null)}
+        onRemoveCard={() => send({ type: 'removePlayedCard' })}
       />
       {isViewingDiscard && (
         <div className={styles.discardPreview} onClick={() => setIsViewingDiscard(false)}>
@@ -238,7 +192,9 @@ function Game({ character }: GameProps) {
               setIsDragActive(false);
               setDraggedCard(null);
             }}
-            onReorder={(reordered) => setDiscardPile([...reordered].reverse())}
+            onReorder={(reordered) =>
+              send({ type: 'reorderDiscard', order: [...reordered].reverse().map((card) => card.id) })
+            }
           />
         </div>
       )}

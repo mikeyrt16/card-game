@@ -1,7 +1,8 @@
 import { useState } from 'react';
+import type { PilePosition } from '../../shared/protocol';
 import styles from './PileDropZone.module.css';
 
-export type PilePosition = 'top' | 'random' | 'bottom';
+export type { PilePosition };
 
 interface PileDropZoneProps {
   placement: 'draw' | 'discard';

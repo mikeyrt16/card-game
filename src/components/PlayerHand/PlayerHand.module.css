@@ -22,6 +22,12 @@
   bottom: auto;
   top: 50%;
   margin-bottom: 0;
+  /* Unlike .hand, this container never needs a hit-area floor for an empty
+     state (the preview is never shown when its pile is empty). Without this
+     override it'd inherit the 256px floor and, being centered on screen at
+     a much higher z-index, its empty region would overlap and steal drag
+     events meant for the real hand sitting below it. */
+  min-height: 0;
   /* Above the draw/discard piles and their drop zones so it clearly reads
      as the focused element while previewing. */
   z-index: 60;
