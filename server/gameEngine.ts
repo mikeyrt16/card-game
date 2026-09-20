@@ -72,7 +72,21 @@ function insertAtPosition(pile: WireCard[], card: WireCard, position: PilePositi
 }
 
 function findDraggableCard(player: ServerPlayerState, cardId: string): WireCard | undefined {
-  return player.hand.find((c) => c.id === cardId) ?? player.discardPile.find((c) => c.id === cardId);
+  return (
+    player.hand.find((c) => c.id === cardId) ??
+    player.discardPile.find((c) => c.id === cardId) ??
+    player.drawPile.find((c) => c.id === cardId)
+  );
+}
+
+/** Strips a card id out of every pool it could currently be sitting in —
+ *  used before re-inserting it elsewhere (as a fresh instance), so a card
+ *  dragged out of an open hand/discard/draw preview can never end up
+ *  duplicated across two pools. */
+function removeCardEverywhere(player: ServerPlayerState, cardId: string): void {
+  player.hand = player.hand.filter((c) => c.id !== cardId);
+  player.discardPile = player.discardPile.filter((c) => c.id !== cardId);
+  player.drawPile = player.drawPile.filter((c) => c.id !== cardId);
 }
 
 function reorderByIds(cards: WireCard[], order: string[]): WireCard[] {
@@ -138,20 +152,17 @@ function dropOnDrawPile(player: ServerPlayerState, cardId: string, position: Pil
   if (!card) {
     return;
   }
+  removeCardEverywhere(player, cardId);
   player.drawPile = insertAtPosition(player.drawPile, withNewId(card), position);
-  player.discardPile = player.discardPile.filter((c) => c.id !== cardId);
-  player.hand = player.hand.filter((c) => c.id !== cardId);
 }
 
 function dropOnDiscardPile(player: ServerPlayerState, cardId: string, position: PilePosition): void {
-  // This drop zone is only ever shown while the discard preview itself is
-  // closed, so in practice this is always a hand -> discard move.
   const card = findDraggableCard(player, cardId);
   if (!card) {
     return;
   }
+  removeCardEverywhere(player, cardId);
   player.discardPile = insertAtPosition(player.discardPile, withNewId(card), position);
-  player.hand = player.hand.filter((c) => c.id !== cardId);
 }
 
 function dropOntoHand(player: ServerPlayerState, cardId: string, index: number): void {
@@ -159,11 +170,11 @@ function dropOntoHand(player: ServerPlayerState, cardId: string, index: number):
     // Already in hand — a plain in-fan reorder, handled by reorderHand.
     return;
   }
-  const card = player.discardPile.find((c) => c.id === cardId);
+  const card = player.discardPile.find((c) => c.id === cardId) ?? player.drawPile.find((c) => c.id === cardId);
   if (!card) {
     return;
   }
-  player.discardPile = player.discardPile.filter((c) => c.id !== cardId);
+  removeCardEverywhere(player, cardId);
   const clampedIndex = Math.max(0, Math.min(index, player.hand.length));
   player.hand = [...player.hand.slice(0, clampedIndex), withNewId(card), ...player.hand.slice(clampedIndex)];
 }
@@ -201,8 +212,14 @@ export function applyAction(state: GameState, slot: PlayerSlot, action: GameActi
     case 'reorderDiscard':
       player.discardPile = reorderByIds(player.discardPile, action.order);
       return;
+    case 'reorderDrawPile':
+      player.drawPile = reorderByIds(player.drawPile, action.order);
+      return;
     case 'shuffleDiscard':
       player.discardPile = shuffle(player.discardPile);
+      return;
+    case 'shuffleDrawPile':
+      player.drawPile = shuffle(player.drawPile);
       return;
   }
 }
@@ -222,6 +239,7 @@ export function buildView(state: GameState, forSlot: PlayerSlot): GameStateView 
       characterId: me.characterId,
       connected: me.connected,
       drawPileCount: me.drawPile.length,
+      drawPile: me.drawPile,
       discardPile: me.discardPile,
       playedCard: me.playedCard,
       hand: me.hand,

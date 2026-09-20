@@ -64,8 +64,10 @@ function Game({ state, character, send }: GameProps) {
   // tracked as real state rather than read off the native drag event).
   const [draggedCard, setDraggedCard] = useState<CardData | null>(null);
   const [isViewingDiscard, setIsViewingDiscard] = useState(false);
+  const [isViewingDraw, setIsViewingDraw] = useState(false);
 
   const hand = state.me.hand.map(toClientCard);
+  const drawPile = state.me.drawPile.map(toClientCard);
   const discardPile = state.me.discardPile.map(toClientCard);
   const playedCard = state.me.playedCard ? toClientCard(state.me.playedCard) : null;
 
@@ -74,17 +76,24 @@ function Game({ state, character, send }: GameProps) {
   const opponentDiscardPile = opponent ? opponent.discardPile.map(toClientCard) : [];
   const opponentPlayedCard = opponent?.playedCard ? toClientCard(opponent.playedCard) : null;
 
-  // The discard preview can only ever be open on a non-empty pile — if the
-  // pile empties out from under it (last card dragged away), close it.
+  // Each preview can only ever be open on a non-empty pile — if a pile
+  // empties out from under it (last card dragged away), close it.
   useEffect(() => {
     if (discardPile.length === 0 && isViewingDiscard) {
       setIsViewingDiscard(false);
     }
   }, [discardPile.length, isViewingDiscard]);
 
+  useEffect(() => {
+    if (drawPile.length === 0 && isViewingDraw) {
+      setIsViewingDraw(false);
+    }
+  }, [drawPile.length, isViewingDraw]);
+
   const handleDraw = () => send({ type: 'draw' });
   const handleReturnFromDiscard = () => send({ type: 'returnFromDiscard' });
   const handleShuffleDiscardPile = () => send({ type: 'shuffleDiscard' });
+  const handleShuffleDrawPile = () => send({ type: 'shuffleDrawPile' });
 
   const handleDropCard = (cardId: string) => {
     // The dropped card's hand slot unmounts immediately, so its native
@@ -130,7 +139,7 @@ function Game({ state, character, send }: GameProps) {
       />
       <PlayerHand
         cards={hand}
-        interactive={!isViewingDiscard}
+        interactive={!isViewingDiscard && !isViewingDraw}
         incomingCard={draggedCard && !hand.some((c) => c.id === draggedCard.id) ? draggedCard : undefined}
         onCardDragStart={(card) => {
           setIsDragActive(true);
@@ -143,14 +152,21 @@ function Game({ state, character, send }: GameProps) {
         onReorder={(reordered) => send({ type: 'reorderHand', order: reordered.map((card) => card.id) })}
         onExternalDrop={handleDropOntoHand}
       />
-      <CardPile
-        count={state.me.drawPileCount}
-        image={character.cardBack}
-        ariaLabel={`Draw a card (${state.me.drawPileCount} remaining)`}
-        placement="draw"
-        onClick={handleDraw}
-        disabled={isViewingDiscard}
-      />
+      {!isViewingDraw && (
+        <CardPile
+          count={state.me.drawPileCount}
+          image={character.cardBack}
+          ariaLabel={`Draw a card (${state.me.drawPileCount} remaining)`}
+          placement="draw"
+          onClick={handleDraw}
+          disabled={isViewingDiscard}
+          onView={() => {
+            setIsViewingDraw(true);
+            setIsViewingDiscard(false);
+          }}
+          onShuffle={handleShuffleDrawPile}
+        />
+      )}
       {!isViewingDiscard && (
         <CardPile
           count={discardPile.length}
@@ -158,11 +174,19 @@ function Game({ state, character, send }: GameProps) {
           ariaLabel={`Return top discarded card to your hand (${discardPile.length} in discard pile)`}
           placement="discard"
           onClick={handleReturnFromDiscard}
-          onView={() => setIsViewingDiscard(true)}
+          disabled={isViewingDraw}
+          onView={() => {
+            setIsViewingDiscard(true);
+            setIsViewingDraw(false);
+          }}
           onShuffle={handleShuffleDiscardPile}
         />
       )}
-      <PileDropZone placement="draw" isDragActive={isDragActive} onDropCard={handleDropOnDrawPile} />
+      <PileDropZone
+        placement="draw"
+        isDragActive={isDragActive && !isViewingDraw}
+        onDropCard={handleDropOnDrawPile}
+      />
       <PileDropZone
         placement="discard"
         isDragActive={isDragActive && !isViewingDiscard}
@@ -170,12 +194,33 @@ function Game({ state, character, send }: GameProps) {
       />
       <DropZone
         playedCard={playedCard}
-        isDragActive={isDragActive && !isViewingDiscard}
+        isDragActive={isDragActive && !isViewingDiscard && !isViewingDraw}
         onDropCard={handleDropCard}
         onRemoveCard={() => send({ type: 'removePlayedCard' })}
       />
+      {isViewingDraw && (
+        <div className={styles.pilePreview} onClick={() => setIsViewingDraw(false)}>
+          {/* Unlike the discard preview below, shown in natural deck order,
+              unreversed: drawPile[0] ("next to be drawn") reads as the
+              backmost card in the fan, with the bottom of the deck
+              frontmost. */}
+          <PlayerHand
+            cards={drawPile}
+            variant="preview"
+            onCardDragStart={(card) => {
+              setIsDragActive(true);
+              setDraggedCard(card);
+            }}
+            onCardDragEnd={() => {
+              setIsDragActive(false);
+              setDraggedCard(null);
+            }}
+            onReorder={(reordered) => send({ type: 'reorderDrawPile', order: reordered.map((card) => card.id) })}
+          />
+        </div>
+      )}
       {isViewingDiscard && (
-        <div className={styles.discardPreview} onClick={() => setIsViewingDiscard(false)}>
+        <div className={styles.pilePreview} onClick={() => setIsViewingDiscard(false)}>
           {/* The fan gives later array entries a higher z-index (rendered in
               front), so the pile's top card (discardPile[0]) needs to be
               last here to visually read as "on top" rather than buried

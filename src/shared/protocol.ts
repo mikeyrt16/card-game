@@ -33,7 +33,9 @@ export type GameAction =
   | { type: 'dropOntoHand'; cardId: string; index: number }
   | { type: 'reorderHand'; order: string[] }
   | { type: 'reorderDiscard'; order: string[] }
-  | { type: 'shuffleDiscard' };
+  | { type: 'reorderDrawPile'; order: string[] }
+  | { type: 'shuffleDiscard' }
+  | { type: 'shuffleDrawPile' };
 
 export type ClientAction = HelloMessage | GameAction;
 
@@ -48,8 +50,10 @@ export interface PlayerView {
 
 export interface GameStateView {
   phase: 'selecting' | 'playing';
-  /** The receiving player's own board — hand is only ever sent to its owner. */
-  me: PlayerView & { hand: WireCard[] };
+  /** The receiving player's own board — hand and the draw pile's actual
+   *  contents are only ever sent to their owner, for a deliberate "look
+   *  through your deck" view; the opponent's stay hidden as counts. */
+  me: PlayerView & { hand: WireCard[]; drawPile: WireCard[] };
   /** null until the opponent has connected at least once. Hand is hidden,
    *  exposed only as a count. */
   opponent: (PlayerView & { handCount: number }) | null;
