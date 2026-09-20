@@ -4,9 +4,27 @@
   right: 0;
   bottom: 0;
   height: 0;
+  /* Cards are absolutely positioned, so they don't contribute to this
+     container's own box size — with zero cards there'd be nothing left to
+     receive a drop at all. This floor keeps a real hit-area for
+     onExternalDrop even when the hand is empty. Doesn't shift the fan
+     itself, since cards are positioned from the bottom edge, not the top. */
+  min-height: 256px;
   display: flex;
   justify-content: center;
   margin-bottom: -60px;
+  /* Needs an explicit value (not auto) so it stacks above the discard
+     preview's dimming backdrop instead of losing to its z-index. */
+  z-index: 10;
+}
+
+.handPreview {
+  bottom: auto;
+  top: 50%;
+  margin-bottom: 0;
+  /* Above the draw/discard piles and their drop zones so it clearly reads
+     as the focused element while previewing. */
+  z-index: 60;
 }
 
 .slot,

@@ -1,0 +1,126 @@
+import { useEffect, useRef, useState, type CSSProperties } from 'react';
+import styles from './CardPile.module.css';
+
+interface CardPileProps {
+  count: number;
+  image: string;
+  ariaLabel: string;
+  placement: 'draw' | 'discard';
+  onClick: () => void;
+  /** Blocks the click-to-draw button only — a separate PileDropZone handles
+   *  drag-and-drop onto this pile and isn't affected by this. */
+  disabled?: boolean;
+  /** When provided (with onShuffle), hovering the pile for a beat reveals a
+   *  small View/Shuffle menu above it. */
+  onView?: () => void;
+  onShuffle?: () => void;
+}
+
+const CARD_WIDTH_PX = 110;
+const MAX_PILE_WIDTH_PX = 1000;
+const BASE_LAYER_OFFSET_PX = 0.5;
+const HOVER_HOLD_MS = 800;
+
+export function CardPile({
+  count,
+  image,
+  ariaLabel,
+  placement,
+  onClick,
+  disabled = false,
+  onView,
+  onShuffle,
+}: CardPileProps) {
+  const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const hoverTimerRef = useRef<number | null>(null);
+
+  const clearHoverTimer = () => {
+    if (hoverTimerRef.current !== null) {
+      window.clearTimeout(hoverTimerRef.current);
+      hoverTimerRef.current = null;
+    }
+  };
+
+  useEffect(() => clearHoverTimer, []);
+
+  if (count <= 0) {
+    return null;
+  }
+
+  const hasMenu = Boolean(onView && onShuffle);
+
+  const layerOffset =
+    count > 1
+      ? Math.min(BASE_LAYER_OFFSET_PX, (MAX_PILE_WIDTH_PX - CARD_WIDTH_PX) / (count - 1))
+      : BASE_LAYER_OFFSET_PX;
+
+  const placementClass = placement === 'draw' ? styles.placementDraw : styles.placementDiscard;
+
+  return (
+    <div
+      className={`${styles.pile} ${placementClass}`}
+      onMouseEnter={
+        hasMenu
+          ? () => {
+              clearHoverTimer();
+              hoverTimerRef.current = window.setTimeout(() => setIsMenuOpen(true), HOVER_HOLD_MS);
+            }
+          : undefined
+      }
+      onMouseLeave={
+        hasMenu
+          ? () => {
+              clearHoverTimer();
+              setIsMenuOpen(false);
+            }
+          : undefined
+      }
+    >
+      {hasMenu && isMenuOpen && (
+        <>
+          {/* Fills the gap between the pile and the menu so the pointer
+              stays within this element's subtree the whole way there —
+              otherwise it crosses empty space and mouseleave fires first. */}
+          <div className={styles.bridge} />
+          <div className={styles.menu}>
+            <button
+              type="button"
+              className={styles.menuButton}
+              onClick={() => {
+                setIsMenuOpen(false);
+                onView?.();
+              }}
+            >
+              View
+            </button>
+            <button
+              type="button"
+              className={styles.menuButton}
+              onClick={() => {
+                setIsMenuOpen(false);
+                onShuffle?.();
+              }}
+            >
+              Shuffle
+            </button>
+          </div>
+        </>
+      )}
+      <span className={styles.count}>{count}</span>
+      <button
+        type="button"
+        className={styles.stackButton}
+        onClick={onClick}
+        disabled={disabled}
+        aria-label={ariaLabel}
+        style={{ '--layer-offset': `${layerOffset}px` } as CSSProperties}
+      >
+        {Array.from({ length: count }, (_, i) => (
+          <div key={i} className={styles.layer} style={{ '--i': i } as CSSProperties}>
+            <img src={image} alt="" className={styles.layerImage} draggable={false} />
+          </div>
+        ))}
+      </button>
+    </div>
+  );
+}

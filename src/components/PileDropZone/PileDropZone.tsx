@@ -1,28 +1,31 @@
 import { useState } from 'react';
-import styles from './DrawPileDropZone.module.css';
+import styles from './PileDropZone.module.css';
 
-export type DrawPilePosition = 'top' | 'random' | 'bottom';
+export type PilePosition = 'top' | 'random' | 'bottom';
 
-interface DrawPileDropZoneProps {
+interface PileDropZoneProps {
+  placement: 'draw' | 'discard';
   isDragActive: boolean;
-  onDropCard: (cardId: string, position: DrawPilePosition) => void;
+  onDropCard: (cardId: string, position: PilePosition) => void;
 }
 
-const DROP_BANDS: { position: DrawPilePosition; label: string }[] = [
+const DROP_BANDS: { position: PilePosition; label: string }[] = [
   { position: 'top', label: 'Top' },
   { position: 'random', label: 'Random' },
   { position: 'bottom', label: 'Bottom' },
 ];
 
-export function DrawPileDropZone({ isDragActive, onDropCard }: DrawPileDropZoneProps) {
-  const [hoverPosition, setHoverPosition] = useState<DrawPilePosition | null>(null);
+export function PileDropZone({ placement, isDragActive, onDropCard }: PileDropZoneProps) {
+  const [hoverPosition, setHoverPosition] = useState<PilePosition | null>(null);
 
   if (!isDragActive) {
     return null;
   }
 
+  const placementClass = placement === 'draw' ? styles.placementDraw : styles.placementDiscard;
+
   return (
-    <div className={styles.dropZone}>
+    <div className={`${styles.dropZone} ${placementClass}`}>
       {DROP_BANDS.map(({ position, label }) => (
         <div
           key={position}

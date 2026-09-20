@@ -1,10 +1,58 @@
-.deck {
+.pile {
   position: fixed;
-  left: 32px;
   bottom: 32px;
   width: 110px;
   aspect-ratio: 250 / 349;
   z-index: 50;
+}
+
+.bridge {
+  position: absolute;
+  bottom: 100%;
+  left: 0;
+  right: 0;
+  height: 34px;
+}
+
+.menu {
+  position: absolute;
+  bottom: calc(100% + 34px);
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 4px;
+  background: #1a1a1a;
+  border: 1px solid rgba(255, 255, 255, 0.35);
+  border-radius: 8px;
+  box-shadow: 0 8px 16px rgba(0, 0, 0, 0.5);
+  z-index: 60;
+}
+
+.menuButton {
+  padding: 6px 14px;
+  border: none;
+  border-radius: 5px;
+  background: rgba(255, 255, 255, 0.1);
+  color: #fff;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background 0.15s ease;
+}
+
+.menuButton:hover {
+  background: rgba(255, 255, 255, 0.22);
+}
+
+.placementDraw {
+  left: 32px;
+}
+
+.placementDiscard {
+  left: 162px;
 }
 
 .count {
@@ -37,6 +85,10 @@
   cursor: pointer;
 }
 
+.stackButton:disabled {
+  cursor: default;
+}
+
 .layer {
   position: absolute;
   inset: 0;
@@ -58,6 +110,6 @@
   -webkit-user-drag: none;
 }
 
-.deck:hover .layer:last-child {
+.pile:hover .layer:last-child {
   transform: translate(calc(var(--i) * var(--layer-offset)), calc(var(--i) * var(--layer-offset) * -1 - 4px));
 }

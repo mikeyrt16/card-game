@@ -30,7 +30,7 @@ export function getCharacter(id: string | undefined): Character | undefined {
   return CHARACTERS.find((character) => character.id === id);
 }
 
-function shuffle<T>(items: T[]): T[] {
+export function shuffle<T>(items: T[]): T[] {
   const shuffled = [...items];
   for (let i = shuffled.length - 1; i > 0; i -= 1) {
     const j = Math.floor(Math.random() * (i + 1));

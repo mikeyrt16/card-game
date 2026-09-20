@@ -11,6 +11,15 @@ interface DropZoneProps {
 
 export function DropZone({ playedCard, isDragActive, onDropCard, onRemoveCard }: DropZoneProps) {
   const [isOver, setIsOver] = useState(false);
+
+  // Unmount entirely when inactive (not just visually hidden) — otherwise
+  // this element stays live in the DOM and its own onDragEnter/isOver can
+  // still make it appear just from a drag passing near screen-center,
+  // regardless of the isDragActive prop.
+  if (!playedCard && !isDragActive) {
+    return null;
+  }
+
   const showPlaceholder = !playedCard && (isDragActive || isOver);
 
   const classNames = [styles.dropZone];

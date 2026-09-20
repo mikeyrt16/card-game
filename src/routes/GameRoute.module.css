@@ -4,3 +4,13 @@
   width: 100%;
   background: var(--bg-felt);
 }
+
+.discardPreview {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.65);
+  /* Below the hand/piles/drop-zones (z-index 10-60) so they stay visible
+     and interactive — only the plain board behind them gets dimmed. */
+  z-index: 5;
+  cursor: pointer;
+}
