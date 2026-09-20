@@ -27,14 +27,13 @@
 /* To the right of the player's own discard pile (left: 162px, width: 110px),
    vertically centered against its height (110px * 349/250 aspect ratio). */
 .placementPlayer {
-  left: 292px;
+  left: 284px;
   bottom: 83px;
 }
 
 /* Mirrors placementPlayer for the opponent's discard pile (right: 162px,
-   top: 20px), continuing the same 130px step already used between the
-   opponent's draw (right: 32px) and discard piles. */
+   top: 20px). */
 .placementOpponent {
-  right: 292px;
+  right: 284px;
   top: 83px;
 }
