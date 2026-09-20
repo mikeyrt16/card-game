@@ -12,7 +12,7 @@ export interface CardDefinition {
   image: string;
 }
 
-export const klingons: CardDefinition[] = [
+export const arthur: CardDefinition[] = [
   {
     "type": "attack",
     "value": 6,
@@ -207,11 +207,11 @@ export const klingons: CardDefinition[] = [
   }
 ];
 
-export const borg: CardDefinition[] = [
+export const medusa: CardDefinition[] = [
   {
     "type": "attack",
     "value": 3,
-    "name": "BORG CUBE",
+    "name": "MEDUSA CUBE",
     "discardValue": 3,
     "details": {
       "title": "PRIMARY PHASER SALVO",
@@ -223,7 +223,7 @@ export const borg: CardDefinition[] = [
   {
     "type": "attack",
     "value": 2,
-    "name": "BORG CUBE",
+    "name": "MEDUSA CUBE",
     "discardValue": 4,
     "details": {
       "title": "ASSIMILATION BEAM",
@@ -235,11 +235,11 @@ export const borg: CardDefinition[] = [
   {
     "type": "attack",
     "value": 4,
-    "name": "BORG SPHERE",
+    "name": "MEDUSA SPHERE",
     "discardValue": 3,
     "details": {
       "title": "SPHERE RECTIFIER",
-      "subtitle": "AFTER COMBAT: Move each Borg Sphere up to 3 spaces."
+      "subtitle": "AFTER COMBAT: Move each Medusa Sphere up to 3 spaces."
     },
     "amount": 2,
     "image": "sphere-rectifier"
@@ -259,7 +259,7 @@ export const borg: CardDefinition[] = [
   {
     "type": "attack",
     "value": 3,
-    "name": "BORG SPHERE",
+    "name": "MEDUSA SPHERE",
     "discardValue": 2,
     "details": {
       "title": "NANITE CLAW",
@@ -307,7 +307,7 @@ export const borg: CardDefinition[] = [
   {
     "type": "attack and defend",
     "value": 4,
-    "name": "BORG CUBE",
+    "name": "MEDUSA CUBE",
     "discardValue": 3,
     "details": {
       "title": "SUB-SPACE INTERFERENCE",
@@ -319,11 +319,11 @@ export const borg: CardDefinition[] = [
   {
     "type": "scheme",
     "value": 0,
-    "name": "BORG CUBE",
+    "name": "MEDUSA CUBE",
     "discardValue": 4,
     "details": {
       "title": "TACTICAL SCAN",
-      "subtitle": "Deal 2 damage to any one fighter in Borg Cube's zone."
+      "subtitle": "Deal 2 damage to any one fighter in Medusa Cube's zone."
     },
     "amount": 2,
     "image": "tactical-scan"
@@ -335,14 +335,14 @@ export const borg: CardDefinition[] = [
     "discardValue": 2,
     "details": {
       "title": "COLLECTIVE SWARM",
-      "subtitle": "Move each of your fighters up to 3 spaces. You may move them through spaces containing opposing fighters. Then, return a defeated Borg Sphere (if any) to any space in Borg Cube's zone."
+      "subtitle": "Move each of your fighters up to 3 spaces. You may move them through spaces containing opposing fighters. Then, return a defeated Medusa Sphere (if any) to any space in Medusa Cube's zone."
     },
     "amount": 2,
     "image": "collective-swarm"
   }
 ];
 
-export const federation: CardDefinition[] = [
+export const sinbad: CardDefinition[] = [
   {
     "type": "attack",
     "value": 5,
@@ -537,7 +537,7 @@ export const federation: CardDefinition[] = [
   }
 ];
 
-export const romulan: CardDefinition[] = [
+export const alice: CardDefinition[] = [
   {
     "type": "attack",
     "value": 4,

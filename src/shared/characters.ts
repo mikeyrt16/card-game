@@ -1,4 +1,4 @@
-import { type CardDefinition, borg, federation, klingons, romulan } from './cards';
+import { type CardDefinition, medusa, sinbad, arthur, alice } from './cards';
 
 export interface CharacterDef {
   id: string;
@@ -7,10 +7,10 @@ export interface CharacterDef {
 }
 
 export const CHARACTER_DEFS: CharacterDef[] = [
-  { id: 'klingons', name: 'Klingons', cards: klingons },
-  { id: 'romulan', name: 'Romulan', cards: romulan },
-  { id: 'borg', name: 'Borg', cards: borg },
-  { id: 'federation', name: 'Federation', cards: federation },
+  { id: 'arthur', name: 'Arthur', cards: arthur },
+  { id: 'alice', name: 'Alice', cards: alice },
+  { id: 'medusa', name: 'Medusa', cards: medusa },
+  { id: 'sinbad', name: 'Sinbad', cards: sinbad },
 ];
 
 export function getCharacterDef(id: string): CharacterDef | undefined {
