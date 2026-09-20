@@ -16,6 +16,29 @@
   /* Needs an explicit value (not auto) so it stacks above the discard
      preview's dimming backdrop instead of losing to its z-index. */
   z-index: 10;
+  /* Drives the variant="hand" auto-hide dock's raise/lower — the inline
+     `transform` toggled in PlayerHand.tsx is what actually animates. */
+  transition: transform 0.25s ease;
+}
+
+/* Invisible trigger strip for the auto-hide dock: hovering it (or the hand
+   itself) raises the hand back to its normal position. Rendered as its own
+   sibling, not a child of .hand, so it stays pinned to the true bottom edge
+   even while .hand is translated down out of the way. */
+.dockHitzone {
+  position: fixed;
+  left: 50%;
+  bottom: 0;
+  width: 1000px;
+  height: 50px;
+  transform: translateX(-50%);
+  /* Below .hand's own 10 — where the two boxes overlap (the hand's own
+     container box still reaches down near the true bottom edge even while
+     lowered), .hand should win the hit-test, since hovering it already
+     raises the dock via isHoveringHandArea regardless of which of the two
+     tracked booleans ends up set. Still well below CardPile's 50, so those
+     stay clickable wherever they overlap this invisible strip too. */
+  z-index: 5;
 }
 
 .handPreview {

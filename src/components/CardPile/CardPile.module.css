@@ -71,25 +71,11 @@
   bottom: auto;
 }
 
-.count {
-  position: absolute;
-  top: 0;
-  left: 50%;
-  transform: translate(-50%, calc(-100% - 8px));
-  min-width: 22px;
-  height: 22px;
-  padding: 0 6px;
-  border-radius: 11px;
-  background: #1a1a1a;
-  border: 1px solid rgba(255, 255, 255, 0.35);
-  color: #fff;
-  font-size: 12px;
-  font-weight: 700;
-  font-variant-numeric: tabular-nums;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  pointer-events: none;
+/* Marker class toggled from CardPile.tsx when the `disabled` prop is set —
+   given its own rule (rather than only appearing inside :not(.disabled)
+   below) so CSS modules reliably extracts and hashes the class name. */
+.disabled {
+  cursor: default;
 }
 
 .stackButton {
@@ -126,6 +112,14 @@
   -webkit-user-drag: none;
 }
 
-.pile:hover .layer:last-child {
+/* Just the artwork, flipped to match the opponent's upside-down hand —
+   the layered-stack 3D effect (.layer's own transform) stays untouched so
+   it matches the player's own piles exactly. */
+.placementOpponentDraw .layerImage,
+.placementOpponentDiscard .layerImage {
+  transform: rotate(180deg);
+}
+
+.pile:not(.disabled):hover .layer:last-child {
   transform: translate(calc(var(--i) * var(--layer-offset)), calc(var(--i) * var(--layer-offset) * -1 - 4px));
 }

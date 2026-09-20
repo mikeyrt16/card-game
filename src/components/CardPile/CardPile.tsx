@@ -63,7 +63,7 @@ export function CardPile({
 
   return (
     <div
-      className={`${styles.pile} ${placementClass}`}
+      className={`${styles.pile} ${placementClass}${disabled ? ` ${styles.disabled}` : ''}`}
       onMouseEnter={
         hasMenu
           ? () => {
@@ -111,7 +111,6 @@ export function CardPile({
           </div>
         </>
       )}
-      <span className={styles.count}>{count}</span>
       <button
         type="button"
         className={styles.stackButton}

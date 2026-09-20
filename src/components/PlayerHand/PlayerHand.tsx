@@ -11,6 +11,10 @@ interface PlayerHandProps {
   /** When false, cards can't be hovered/focused or dragged — the hand stays
    *  a valid drop target but is otherwise inert. Default true. */
   interactive?: boolean;
+  /** Only meaningful for variant 'hand': keeps the auto-hide dock raised
+   *  regardless of hover — e.g. while a pile preview is open and this hand
+   *  still needs to be visible/usable as a drop target. Default false. */
+  forceOpen?: boolean;
   /** A card currently being dragged in from elsewhere (not already part of
    *  `cards`) — shown as a live preview inserted wherever it's hovered.
    *  Committing it still happens via onExternalDrop. */
@@ -48,6 +52,7 @@ export function PlayerHand({
   cards,
   variant = 'hand',
   interactive = true,
+  forceOpen = false,
   incomingCard,
   onCardDragStart,
   onCardDragEnd,
@@ -89,6 +94,14 @@ export function PlayerHand({
   // insertion point rather than a swap target since the card isn't
   // actually part of `cards` yet.
   const [incomingInsertIndex, setIncomingInsertIndex] = useState<number | null>(null);
+  // Auto-hide dock (variant 'hand' only): the fan sits lowered out of the
+  // way by default, and rises to its normal position while the pointer is
+  // over either this fan or the separate bottom-center hitzone rendered
+  // below. Tracked as two independent booleans (rather than one flag both
+  // regions flip) so moving from one region straight into the other never
+  // has a spurious closed frame in between.
+  const [isHoveringDockZone, setIsHoveringDockZone] = useState(false);
+  const [isHoveringHandArea, setIsHoveringHandArea] = useState(false);
   const handRef = useRef<HTMLDivElement>(null);
 
   // A drop onto an external target (discard pile, draw pile, play zone —
@@ -134,6 +147,19 @@ export function PlayerHand({
     variant === 'preview' ? styles.handPreview : variant === 'opponent' ? styles.handOpponent : '';
   const handClassName = `${styles.hand} ${handVariantClass}`.trim();
   const canReceiveDrag = Boolean(effectiveDraggedCardId) || Boolean(incomingCard);
+
+  const isDockedHand = variant === 'hand';
+  // Also stays raised mid-drag — a card of ours being dragged, or one being
+  // dragged in from elsewhere — so the fan doesn't sink away out from under
+  // an in-progress drag just because native drag-and-drop can make regular
+  // mouseenter/mouseleave fire inconsistently while it's active.
+  const isDockOpen =
+    !isDockedHand ||
+    forceOpen ||
+    isHoveringDockZone ||
+    isHoveringHandArea ||
+    Boolean(effectiveDraggedCardId) ||
+    isIncomingHovered;
 
   const handleDragOver = (e: DragEvent<HTMLDivElement>) => {
     if (!canReceiveDrag) {
@@ -212,126 +238,141 @@ export function PlayerHand({
   };
 
   return (
-    <div
-      ref={handRef}
-      className={handClassName}
-      onDragOver={handleDragOver}
-      onDrop={handleDrop}
-      onDragLeave={handleDragLeave}
-    >
-      {/* Invisible native drag sources — one per card actually in `cards`,
-          positioned from the static (never-reordered-for-preview) geometry.
-          Kept as a list separate from the visual fan below and keyed
-          identically to it, so a card's own drag-source node is never
-          unmounted mid-gesture just because the *visual* layer hid or
-          reordered it elsewhere (e.g. isDraggedAway closing the fan's gap).
-          Losing that mount would mean the browser can never fire this
-          card's dragend again — dropped somewhere that doesn't handle it,
-          it would stay invisible forever instead of snapping back. */}
-      {cards.map((card, i) => {
-        const offset = i - staticCenter;
-        const normalized = staticCenter > 0 ? offset / staticCenter : 0;
-        const positionStyle = {
-          '--rotate': `${normalized * MAX_ROTATION_DEG}deg`,
-          '--translate-x': `${offset * staticCardSpacing}px`,
-          '--translate-y': `${normalized * normalized * MAX_ARC_RISE_PX}px`,
-        } as CSSProperties;
-
-        return (
-          <div
-            key={card.id}
-            className={styles.slot}
-            style={{ ...positionStyle, zIndex: i, pointerEvents: interactive ? undefined : 'none' }}
-            draggable={interactive}
-            onDragStart={
-              interactive
-                ? (e) => {
-                    e.dataTransfer.setData('text/plain', card.id);
-                    e.dataTransfer.effectAllowed = 'move';
-
-                    const width = CARD_WIDTH_PX * DRAG_PREVIEW_SCALE;
-                    const height = width * CARD_ASPECT_RATIO;
-                    const ghost = document.createElement('img');
-                    ghost.src = card.image;
-                    ghost.style.position = 'fixed';
-                    ghost.style.top = '-9999px';
-                    ghost.style.left = '-9999px';
-                    ghost.style.width = `${width}px`;
-                    ghost.style.height = `${height}px`;
-                    ghost.style.objectFit = 'cover';
-                    ghost.style.borderRadius = '12px';
-                    ghost.style.opacity = '0.35';
-                    document.body.appendChild(ghost);
-                    // Anchor the cursor near the top of the ghost (rather than
-                    // centered) so the ghost trails below the cursor instead of
-                    // fully covering whatever drop target the cursor is over —
-                    // native drag images always paint above the page, so this is
-                    // the only way to keep the target underneath legible.
-                    e.dataTransfer.setDragImage(ghost, width / 2, 16);
-                    window.setTimeout(() => ghost.remove(), 0);
-
-                    setFocusedCardId(null);
-                    setDraggedCardId(card.id);
-                    setDragOverCardId(null);
-                    setIsDraggedAway(false);
-                    setIsIncomingHovered(false);
-                    setIncomingInsertIndex(null);
-                    onCardDragStart?.(card);
-                  }
-                : undefined
-            }
-            onDragEnd={
-              interactive
-                ? () => {
-                    setDraggedCardId(null);
-                    setDragOverCardId(null);
-                    setIsDraggedAway(false);
-                    // handleDragOver sets this true during a purely local
-                    // reorder drag too (the pointer never leaves this
-                    // container), but nothing resets it once that drag
-                    // ends — left stale true, it would wrongly satisfy the
-                    // incomingCard-preview gate the instant *any* later
-                    // drag starts anywhere, even one nowhere near this
-                    // hand (e.g. reordering the discard preview).
-                    setIsIncomingHovered(false);
-                    setIncomingInsertIndex(null);
-                    onCardDragEnd?.();
-                  }
-                : undefined
-            }
-            onMouseEnter={interactive ? () => setFocusedCardId(card.id) : undefined}
-            onMouseLeave={interactive ? () => setFocusedCardId(null) : undefined}
-          />
-        );
-      })}
-      {displayCards.map((card, i) => {
-        const offset = i - center;
-        const normalized = center > 0 ? offset / center : 0;
-        const isIncoming = incomingCard?.id === card.id;
-        // A stale hover-focus from before this hand went inert shouldn't
-        // still render as expanded, so gate on `interactive` here rather
-        // than clearing the state itself.
-        const isFocused = interactive && !isIncoming && focusedCardId === card.id;
-
-        const positionStyle = {
-          '--rotate': `${normalized * MAX_ROTATION_DEG}deg`,
-          '--translate-x': `${offset * cardSpacing}px`,
-          '--translate-y': `${normalized * normalized * MAX_ARC_RISE_PX}px`,
-        } as CSSProperties;
-
-        return (
-          <div
-            key={card.id}
-            data-testid="hand-card"
-            className={styles.cardSlot}
-            style={{ ...positionStyle, zIndex: isFocused ? displayCards.length : i }}
-          >
-            <div className={isFocused ? `${styles.card} ${styles.focused}` : styles.card}>
-              <img src={card.image} alt="" className={styles.cardImage} draggable={false} />
+    <>
+      <div
+        ref={handRef}
+        className={handClassName}
+        style={isDockedHand ? { transform: isDockOpen ? 'translateY(0)' : 'translateY(150px)' } : undefined}
+        onDragOver={handleDragOver}
+        onDrop={handleDrop}
+        onDragLeave={handleDragLeave}
+        onMouseEnter={isDockedHand ? () => setIsHoveringHandArea(true) : undefined}
+        onMouseLeave={isDockedHand ? () => setIsHoveringHandArea(false) : undefined}
+      >
+        {/* Invisible native drag sources — one per card actually in `cards`,
+            positioned from the static (never-reordered-for-preview) geometry.
+            Kept as a list separate from the visual fan below and keyed
+            identically to it, so a card's own drag-source node is never
+            unmounted mid-gesture just because the *visual* layer hid or
+            reordered it elsewhere (e.g. isDraggedAway closing the fan's gap).
+            Losing that mount would mean the browser can never fire this
+            card's dragend again — dropped somewhere that doesn't handle it,
+            it would stay invisible forever instead of snapping back. */}
+        {cards.map((card, i) => {
+          const offset = i - staticCenter;
+          const normalized = staticCenter > 0 ? offset / staticCenter : 0;
+          const positionStyle = {
+            '--rotate': `${normalized * MAX_ROTATION_DEG}deg`,
+            '--translate-x': `${offset * staticCardSpacing}px`,
+            '--translate-y': `${normalized * normalized * MAX_ARC_RISE_PX}px`,
+          } as CSSProperties;
+  
+          return (
+            <div
+              key={card.id}
+              className={styles.slot}
+              style={{ ...positionStyle, zIndex: i, pointerEvents: interactive ? undefined : 'none' }}
+              draggable={interactive}
+              onDragStart={
+                interactive
+                  ? (e) => {
+                      e.dataTransfer.setData('text/plain', card.id);
+                      e.dataTransfer.effectAllowed = 'move';
+  
+                      const width = CARD_WIDTH_PX * DRAG_PREVIEW_SCALE;
+                      const height = width * CARD_ASPECT_RATIO;
+                      const ghost = document.createElement('img');
+                      ghost.src = card.image;
+                      ghost.style.position = 'fixed';
+                      ghost.style.top = '-9999px';
+                      ghost.style.left = '-9999px';
+                      ghost.style.width = `${width}px`;
+                      ghost.style.height = `${height}px`;
+                      ghost.style.objectFit = 'cover';
+                      ghost.style.borderRadius = '12px';
+                      ghost.style.opacity = '0.35';
+                      document.body.appendChild(ghost);
+                      // Anchor the cursor near the top of the ghost (rather than
+                      // centered) so the ghost trails below the cursor instead of
+                      // fully covering whatever drop target the cursor is over —
+                      // native drag images always paint above the page, so this is
+                      // the only way to keep the target underneath legible.
+                      e.dataTransfer.setDragImage(ghost, width / 2, 16);
+                      window.setTimeout(() => ghost.remove(), 0);
+  
+                      setFocusedCardId(null);
+                      setDraggedCardId(card.id);
+                      setDragOverCardId(null);
+                      setIsDraggedAway(false);
+                      setIsIncomingHovered(false);
+                      setIncomingInsertIndex(null);
+                      onCardDragStart?.(card);
+                    }
+                  : undefined
+              }
+              onDragEnd={
+                interactive
+                  ? () => {
+                      setDraggedCardId(null);
+                      setDragOverCardId(null);
+                      setIsDraggedAway(false);
+                      // handleDragOver sets this true during a purely local
+                      // reorder drag too (the pointer never leaves this
+                      // container), but nothing resets it once that drag
+                      // ends — left stale true, it would wrongly satisfy the
+                      // incomingCard-preview gate the instant *any* later
+                      // drag starts anywhere, even one nowhere near this
+                      // hand (e.g. reordering the discard preview).
+                      setIsIncomingHovered(false);
+                      setIncomingInsertIndex(null);
+                      onCardDragEnd?.();
+                    }
+                  : undefined
+              }
+              onMouseEnter={interactive ? () => setFocusedCardId(card.id) : undefined}
+              onMouseLeave={interactive ? () => setFocusedCardId(null) : undefined}
+            />
+          );
+        })}
+        {displayCards.map((card, i) => {
+          const offset = i - center;
+          const normalized = center > 0 ? offset / center : 0;
+          const isIncoming = incomingCard?.id === card.id;
+          // A stale hover-focus from before this hand went inert shouldn't
+          // still render as expanded, so gate on `interactive` here rather
+          // than clearing the state itself.
+          const isFocused = interactive && !isIncoming && focusedCardId === card.id;
+  
+          const positionStyle = {
+            '--rotate': `${normalized * MAX_ROTATION_DEG}deg`,
+            '--translate-x': `${offset * cardSpacing}px`,
+            '--translate-y': `${normalized * normalized * MAX_ARC_RISE_PX}px`,
+          } as CSSProperties;
+  
+          return (
+            <div
+              key={card.id}
+              data-testid="hand-card"
+              className={styles.cardSlot}
+              style={{ ...positionStyle, zIndex: isFocused ? displayCards.length : i }}
+            >
+              <div className={isFocused ? `${styles.card} ${styles.focused}` : styles.card}>
+                <img src={card.image} alt="" className={styles.cardImage} draggable={false} />
+              </div>
             </div>
-          </div>
-        );
-      })}
-    </div>
+          );
+        })}
+      </div>
+      {isDockedHand && (
+        // A separate, un-transformed sibling (not a child of the dock above)
+        // so it stays pinned to the true bottom edge regardless of whether
+        // the hand itself is currently lowered or raised.
+        <div
+          className={styles.dockHitzone}
+          onMouseEnter={() => setIsHoveringDockZone(true)}
+          onMouseLeave={() => setIsHoveringDockZone(false)}
+        />
+      )}
+    </>
   );
 }

@@ -159,6 +159,7 @@ function Game({ state, character, send }: GameProps) {
       <PlayerHand
         cards={hand}
         interactive={!isViewingDiscard && !isViewingDraw}
+        forceOpen={isViewingDiscard || isViewingDraw}
         incomingCard={draggedCard && !hand.some((c) => c.id === draggedCard.id) ? draggedCard : undefined}
         onCardDragStart={(card) => {
           setIsDragActive(true);
