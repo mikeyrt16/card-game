@@ -15,7 +15,7 @@ import { toClientCard, type CardData } from '../data/cards';
 import { getCharacter, type Character } from '../data/characters';
 import { MAPS, type MapInfo } from '../data/maps';
 import { useGameConnection } from '../net/GameConnectionProvider';
-import type { GameAction, GameStateView, PlayerSlot } from '../shared/protocol';
+import type { GameAction, GameStateView, PlayerSlot, WireCard } from '../shared/protocol';
 import styles from './GameRoute.module.css';
 
 export function GameRoute() {
@@ -87,10 +87,26 @@ function Game({ state, character, map, send }: GameProps) {
   // read more clearly against it.
   const isMapDimmed = isHandOpen || isViewingDiscard || isViewingDraw || isViewingOpponentDiscard;
 
-  const hand = state.me.hand.map(toClientCard);
-  const drawPile = state.me.drawPile.map(toClientCard);
-  const discardPile = state.me.discardPile.map(toClientCard);
-  const servePile = state.me.servePile.map(toClientCard);
+  // A card that's just been dropped into a different pile, hidden from the
+  // pile it came from until the server's echo lands. Without this it pops
+  // back into the source fan for the length of the round trip: the fan hides
+  // it mid-drag, then un-hides it on dragend, and only the server's reply
+  // actually takes it out of the list — which reads as a one-frame flicker.
+  // The server mints a fresh id on every move, so filtering the old id can
+  // never hide the card at its destination.
+  const [movingCardId, setMovingCardId] = useState<string | null>(null);
+  // Every action is answered with a broadcast, so exactly one state update
+  // is how long the optimistic hide needs to last. It also means a move the
+  // server rejected correctly puts the card back rather than stranding it.
+  useEffect(() => {
+    setMovingCardId(null);
+  }, [state]);
+
+  const visible = (cards: WireCard[]) => cards.filter((c) => c.id !== movingCardId).map(toClientCard);
+  const hand = visible(state.me.hand);
+  const drawPile = visible(state.me.drawPile);
+  const discardPile = visible(state.me.discardPile);
+  const servePile = visible(state.me.servePile);
   const revealedServe = state.me.revealedServe.map(toClientCard);
   // A serve mode locks both players' action buttons; only the player who
   // started it gets the center staging area.
@@ -163,12 +179,14 @@ function Game({ state, character, map, send }: GameProps) {
   const handleDropOnDrawPile = (cardId: string, position: PilePosition) => {
     setIsDragActive(false);
     setDraggedCard(null);
+    setMovingCardId(cardId);
     send({ type: 'dropOnDrawPile', cardId, position });
   };
 
   const handleDropOnDiscardPile = (cardId: string, position: PilePosition) => {
     setIsDragActive(false);
     setDraggedCard(null);
+    setMovingCardId(cardId);
     send({ type: 'dropOnDiscardPile', cardId, position });
   };
 
@@ -179,6 +197,7 @@ function Game({ state, character, map, send }: GameProps) {
       // Already staged — a plain in-fan reorder, applied live via onReorder.
       return;
     }
+    setMovingCardId(cardId);
     send({ type: 'serveCard', cardId, index });
   };
 
@@ -190,6 +209,7 @@ function Game({ state, character, map, send }: GameProps) {
       // already applied live via onReorder while dragging.
       return;
     }
+    setMovingCardId(cardId);
     send({ type: 'dropOntoHand', cardId, index });
   };
 
