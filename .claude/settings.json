@@ -1,0 +1,9 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(node ./removed-dropzone-test.mjs)",
+      "Bash(file src/assets/action-buttons/*.png)",
+      "Bash(node ./serve-test.mjs)"
+    ]
+  }
+}

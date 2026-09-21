@@ -1,0 +1,55 @@
+/* Positioned centered above the player's own draw pile (CardPile's
+   .placementDraw: left: 32px, width: 110px, bottom: 20px, aspect-ratio
+   250/349 -> ~154px tall) — 51px centers this 72px button over that 110px
+   pile, and 202px clears the pile's top edge (20 + 154) with a 28px gap. */
+.container {
+  position: fixed;
+  left: 51px;
+  bottom: 202px;
+  width: 72px;
+  height: 72px;
+  padding: 0;
+  border: none;
+  background: none;
+  cursor: pointer;
+  perspective: 600px;
+  z-index: 50;
+}
+
+/* Mirrors placementOpponentDraw (top: 20px, right: 32px) the same way —
+   below the opponent's pile instead of above, and rotated upside down to
+   match their inverted board, same as their hand/piles. */
+.mirrored {
+  left: auto;
+  right: 51px;
+  bottom: auto;
+  top: 202px;
+  transform: rotate(180deg);
+}
+
+.flipInner {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  transition: transform 0.5s ease;
+  transform-style: preserve-3d;
+}
+
+.flipped {
+  transform: rotateY(180deg);
+}
+
+.face {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+  object-fit: cover;
+  backface-visibility: hidden;
+  box-shadow: 0 3px 10px rgba(0, 0, 0, 0.6);
+}
+
+.faceBack {
+  transform: rotateY(180deg);
+}

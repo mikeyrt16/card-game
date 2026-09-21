@@ -1,14 +1,16 @@
 import { useEffect, useState } from 'react';
 import { Navigate } from 'react-router-dom';
+import { ActionButtons } from '../components/ActionButtons/ActionButtons';
+import { AliceCoin } from '../components/AliceCoin/AliceCoin';
 import { CardPile } from '../components/CardPile/CardPile';
 import { PileDropZone, type PilePosition } from '../components/PileDropZone/PileDropZone';
-import { DropZone } from '../components/DropZone/DropZone';
 import { PlayerHand } from '../components/PlayerHand/PlayerHand';
 import { ConfirmDialog } from '../components/ConfirmDialog/ConfirmDialog';
 import { InfoButton } from '../components/InfoButton/InfoButton';
 import { CharacterCardDialog } from '../components/CharacterCardDialog/CharacterCardDialog';
 import { GameMenu } from '../components/GameMenu/GameMenu';
 import { Map } from '../components/Map/Map';
+import { ServeArea } from '../components/ServeArea/ServeArea';
 import { toClientCard, type CardData } from '../data/cards';
 import { getCharacter, type Character } from '../data/characters';
 import { MAPS, type MapInfo } from '../data/maps';
@@ -88,9 +90,18 @@ function Game({ state, character, map, send }: GameProps) {
   const hand = state.me.hand.map(toClientCard);
   const drawPile = state.me.drawPile.map(toClientCard);
   const discardPile = state.me.discardPile.map(toClientCard);
-  const playedCard = state.me.playedCard ? toClientCard(state.me.playedCard) : null;
+  const servePile = state.me.servePile.map(toClientCard);
+  const revealedServe = state.me.revealedServe.map(toClientCard);
+  // A serve mode locks both players' action buttons; only the player who
+  // started it gets the center staging area.
+  const isServing = state.serve?.activator === state.mySlot;
+  const hasRevealedServe = revealedServe.length > 0;
+  // Both center fans live where the draw/discard previews open, so they
+  // step aside rather than overlapping one.
+  const isViewingAPile = isViewingDiscard || isViewingDraw || isViewingOpponentDiscard;
 
   const opponent = state.opponent;
+  const opponentSlot: PlayerSlot = state.mySlot === 'player1' ? 'player2' : 'player1';
   const opponentCharacter = opponent?.characterId ? getCharacter(opponent.characterId) : undefined;
   const opponentDiscardPile = opponent ? opponent.discardPile.map(toClientCard) : [];
   const opponentCardBack = opponentCharacter?.cardBack ?? character.cardBack;
@@ -126,18 +137,28 @@ function Game({ state, character, map, send }: GameProps) {
     }
   }, [opponentDiscardPile.length, isViewingOpponentDiscard]);
 
+  // Escape backs out of whichever serve thing is on screen for me: my own
+  // in-progress serve (staged cards go back to my hand), or the serve my
+  // opponent showed me.
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key !== 'Escape') {
+        return;
+      }
+      if (isServing) {
+        send({ type: 'cancelServeMode' });
+      } else if (hasRevealedServe) {
+        send({ type: 'clearRevealedServe' });
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isServing, hasRevealedServe, send]);
+
   const handleDraw = () => send({ type: 'draw' });
   const handleReturnFromDiscard = () => send({ type: 'returnFromDiscard' });
   const handleShuffleDiscardPile = () => send({ type: 'shuffleDiscard' });
   const handleShuffleDrawPile = () => send({ type: 'shuffleDrawPile' });
-
-  const handleDropCard = (cardId: string) => {
-    // The dropped card's hand slot unmounts immediately, so its native
-    // dragend never fires — reset the drag-active flag here instead.
-    setIsDragActive(false);
-    setDraggedCard(null);
-    send({ type: 'playCard', cardId });
-  };
 
   const handleDropOnDrawPile = (cardId: string, position: PilePosition) => {
     setIsDragActive(false);
@@ -149,6 +170,16 @@ function Game({ state, character, map, send }: GameProps) {
     setIsDragActive(false);
     setDraggedCard(null);
     send({ type: 'dropOnDiscardPile', cardId, position });
+  };
+
+  const handleServeCard = (cardId: string, index: number) => {
+    setIsDragActive(false);
+    setDraggedCard(null);
+    if (servePile.some((c) => c.id === cardId)) {
+      // Already staged — a plain in-fan reorder, applied live via onReorder.
+      return;
+    }
+    send({ type: 'serveCard', cardId, index });
   };
 
   const handleDropOntoHand = (cardId: string, index: number) => {
@@ -186,6 +217,12 @@ function Game({ state, character, map, send }: GameProps) {
         />
       )}
       <GameMenu onReturnToMainMenu={() => send({ type: 'returnToMainMenu' })} />
+      <ActionButtons
+        characterId={character.id}
+        disabled={state.serve !== null}
+        onSingle={() => send({ type: 'activateServeMode', mode: 'single' })}
+        onDouble={() => send({ type: 'activateServeMode', mode: 'double' })}
+      />
       {/* Opponent's board, mirrored upside-down at the top — same
           components as our own piles/hand, just repositioned/read-only. */}
       <PlayerHand cards={opponentHand} variant="opponent" interactive={false} />
@@ -197,6 +234,13 @@ function Game({ state, character, map, send }: GameProps) {
         onClick={() => {}}
         disabled
       />
+      {opponentCharacter?.id === 'alice' && (
+        <AliceCoin
+          mirrored
+          big={opponent?.aliceCoinBig ?? false}
+          onToggle={() => send({ type: 'toggleAliceCoin', owner: opponentSlot })}
+        />
+      )}
       {!isViewingOpponentDiscard && (
         <CardPile
           count={opponentDiscardPile.length}
@@ -223,8 +267,9 @@ function Game({ state, character, map, send }: GameProps) {
         interactive={!isViewingDiscard && !isViewingDraw && !isViewingOpponentDiscard}
         // Unlike our own discard/draw previews, the opponent's discard
         // preview is read-only with nothing to drag in or out of — no
-        // reason to force the hand open just because it's showing.
-        forceOpen={isViewingDiscard || isViewingDraw}
+        // reason to force the hand open just because it's showing. A serve
+        // in progress also keeps it open: that's where its cards come from.
+        forceOpen={isViewingDiscard || isViewingDraw || isServing}
         onDockOpenChange={setIsHandOpen}
         incomingCard={draggedCard && !hand.some((c) => c.id === draggedCard.id) ? draggedCard : undefined}
         onCardDragStart={(card) => {
@@ -252,6 +297,13 @@ function Game({ state, character, map, send }: GameProps) {
             setIsViewingOpponentDiscard(false);
           }}
           onShuffle={() => setShuffleConfirm('draw')}
+        />
+      )}
+      {character.id === 'alice' && (
+        <AliceCoin
+          mirrored={false}
+          big={state.me.aliceCoinBig}
+          onToggle={() => send({ type: 'toggleAliceCoin', owner: state.mySlot })}
         />
       )}
       {!isViewingDiscard && (
@@ -286,12 +338,31 @@ function Game({ state, character, map, send }: GameProps) {
         isDragActive={isDragActive && !isViewingDiscard}
         onDropCard={handleDropOnDiscardPile}
       />
-      <DropZone
-        playedCard={playedCard}
-        isDragActive={isDragActive && !isViewingDiscard && !isViewingDraw}
-        onDropCard={handleDropCard}
-        onRemoveCard={() => send({ type: 'removePlayedCard' })}
-      />
+      {/* My own serve, mid-staging — a live fan, not a stacked pile. Steps
+          aside while a draw/discard preview is open, since those fan out in
+          the same place. */}
+      {isServing && state.serve?.mode === 'single' && !isViewingAPile && (
+        <ServeArea
+          cards={servePile}
+          incomingCard={draggedCard && !servePile.some((c) => c.id === draggedCard.id) ? draggedCard : undefined}
+          isDragActive={isDragActive}
+          onServeCard={handleServeCard}
+          onConfirm={() => send({ type: 'confirmServe' })}
+          onCardDragStart={(card) => {
+            setIsDragActive(true);
+            setDraggedCard(card);
+          }}
+          onCardDragEnd={() => {
+            setIsDragActive(false);
+            setDraggedCard(null);
+          }}
+          onReorder={(reordered) => send({ type: 'reorderServePile', order: reordered.map((card) => card.id) })}
+        />
+      )}
+      {/* What my opponent served me — read-only, and only on my screen. */}
+      {hasRevealedServe && !isViewingAPile && (
+        <PlayerHand cards={revealedServe} variant="preview" interactive={false} hoverOnly />
+      )}
       {isViewingDraw && (
         <div className={styles.pilePreview} onClick={() => setIsViewingDraw(false)}>
           {/* Unlike the discard preview below, shown in natural deck order,

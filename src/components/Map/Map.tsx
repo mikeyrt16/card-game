@@ -1,45 +1,21 @@
 import { Fragment, useEffect, useRef, useState, type CSSProperties, type PointerEvent as ReactPointerEvent } from 'react';
 import { getCoinImage } from '../../data/assets';
+import { characterColorHex, characterGlowRgb, hexToRgb } from '../../data/characterColors';
 import { HealthEditDialog } from '../HealthEditDialog/HealthEditDialog';
 import type { CoinState, CoinType, PlayerCoins, PlayerSlot } from '../../shared/protocol';
 import styles from './Map.module.css';
 
 const SLOTS: PlayerSlot[] = ['player1', 'player2'];
 
-/** Each character's particle fountain is tinted to match them, rather than
- *  a fixed ally/enemy palette — so it reads as "this is Medusa's fountain"
- *  regardless of which player is controlling her. Falls back to the
- *  original gold if an unknown characterId ever slips through. */
-const CHARACTER_PARTICLE_COLORS: Record<string, string> = {
-  medusa: '#6FCF52',
-  arthur: '#FF6F5E',
-  alice: '#4FC3FF',
-  sinbad: '#F7932D',
-};
-const DEFAULT_PARTICLE_COLOR = '#FFD54A';
-
-function hexToRgb(hex: string): [number, number, number] {
-  const value = parseInt(hex.slice(1), 16);
-  return [(value >> 16) & 255, (value >> 8) & 255, value & 255];
-}
-
 /** Derives the particle gradient's three stops from one character color:
  *  a near-white core (particles read as glowing hot at their center,
  *  whatever the hue), the character color itself as the mid stop, and a
  *  fully-transparent version of it for the fade-out edge. */
 function buildParticlePalette(characterId: string | null): { core: string; mid: string; fade: string } {
-  const hex = (characterId && CHARACTER_PARTICLE_COLORS[characterId]) || DEFAULT_PARTICLE_COLOR;
+  const hex = characterColorHex(characterId);
   const [r, g, b] = hexToRgb(hex);
   const core = `rgb(${Math.round(r + (255 - r) * 0.8)}, ${Math.round(g + (255 - g) * 0.8)}, ${Math.round(b + (255 - b) * 0.8)})`;
   return { core, mid: hex, fade: `rgba(${r}, ${g}, ${b}, 0)` };
-}
-
-/** The "picked up" glow's color, as a space-separated "R G B" triple for
- *  CSS's `rgb(var(--glow-rgb) / <alpha>)` syntax — same source color as
- *  that character's particle fountain (buildParticlePalette's `mid`). */
-function characterGlowRgb(characterId: string | null): string {
-  const hex = (characterId && CHARACTER_PARTICLE_COLORS[characterId]) || DEFAULT_PARTICLE_COLOR;
-  return hexToRgb(hex).join(' ');
 }
 
 /** Per-coin-type fountain tuning. Minion coins are visually smaller (76px
@@ -237,6 +213,12 @@ export function Map({
   // network traffic stays bounded.
   const rafRef = useRef<number | null>(null);
   const pendingMoveRef = useRef<LocalDrag | null>(null);
+  // Where within the coin the pointer grabbed it (in image-percent units,
+  // pointer position minus the coin's own position at pointerdown) — kept
+  // constant for the drag's duration and subtracted back out on every move,
+  // so the coin follows the pointer from wherever it was actually grabbed
+  // instead of snapping its center to the pointer.
+  const grabOffsetRef = useRef<{ x: number; y: number }>({ x: 0, y: 0 });
   const [editingCoin, setEditingCoin] = useState<EditingCoin | null>(null);
 
   // Re-measure the image's natural size whenever it changes (new map) —
@@ -302,8 +284,10 @@ export function Map({
       return;
     }
     e.currentTarget.setPointerCapture(e.pointerId);
-    const point = toImagePercent(e.clientX, e.clientY) ?? { x: coin.x, y: coin.y };
-    setLocalDrag({ owner, coinType, minionIndex, ...point });
+    const point = toImagePercent(e.clientX, e.clientY);
+    grabOffsetRef.current = point ? { x: point.x - coin.x, y: point.y - coin.y } : { x: 0, y: 0 };
+    // Stays put at the coin's actual current position — no snap on grab.
+    setLocalDrag({ owner, coinType, minionIndex, x: coin.x, y: coin.y });
     onCoinDragStart(owner, coinType, minionIndex);
   };
 
@@ -317,7 +301,14 @@ export function Map({
     if (!point) {
       return;
     }
-    const next = { owner, coinType, minionIndex, ...point };
+    const offset = grabOffsetRef.current;
+    const next = {
+      owner,
+      coinType,
+      minionIndex,
+      x: Math.max(0, Math.min(100, point.x - offset.x)),
+      y: Math.max(0, Math.min(100, point.y - offset.y)),
+    };
     setLocalDrag(next);
     pendingMoveRef.current = next;
     if (rafRef.current === null) {

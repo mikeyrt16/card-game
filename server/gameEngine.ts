@@ -8,6 +8,8 @@ import type {
   PilePosition,
   PlayerCoins,
   PlayerSlot,
+  ServeMode,
+  ServeState,
   WireCard,
 } from '../src/shared/protocol';
 
@@ -20,13 +22,21 @@ interface ServerPlayerState {
   drawPile: WireCard[];
   discardPile: WireCard[];
   hand: WireCard[];
-  playedCard: WireCard | null;
+  /** Cards staged into this player's centered serve pile while they have a
+   *  serve mode running — private to them until confirmed. */
+  servePile: WireCard[];
+  /** What this player's opponent last served them, until dismissed. */
+  revealedServe: WireCard[];
+  /** Alice's special-component coin — see `toggleAliceCoin`. Unused (stays
+   *  false) for every other character. */
+  aliceCoinBig: boolean;
 }
 
 export interface GameState {
   phase: GamePhase;
   selectedMapId: string | null;
   coins: Record<PlayerSlot, PlayerCoins>;
+  serve: ServeState | null;
   players: Record<PlayerSlot, ServerPlayerState>;
 }
 
@@ -38,7 +48,9 @@ export function createEmptyPlayer(): ServerPlayerState {
     drawPile: [],
     discardPile: [],
     hand: [],
-    playedCard: null,
+    servePile: [],
+    revealedServe: [],
+    aliceCoinBig: false,
   };
 }
 
@@ -80,6 +92,7 @@ export function createInitialState(): GameState {
     phase: 'character-select',
     selectedMapId: null,
     coins: createInitialCoins(),
+    serve: null,
     players: { player1: createEmptyPlayer(), player2: createEmptyPlayer() },
   };
 }
@@ -126,18 +139,20 @@ function findDraggableCard(player: ServerPlayerState, cardId: string): WireCard 
   return (
     player.hand.find((c) => c.id === cardId) ??
     player.discardPile.find((c) => c.id === cardId) ??
-    player.drawPile.find((c) => c.id === cardId)
+    player.drawPile.find((c) => c.id === cardId) ??
+    player.servePile.find((c) => c.id === cardId)
   );
 }
 
 /** Strips a card id out of every pool it could currently be sitting in —
  *  used before re-inserting it elsewhere (as a fresh instance), so a card
- *  dragged out of an open hand/discard/draw preview can never end up
+ *  dragged out of an open hand/discard/draw/serve preview can never end up
  *  duplicated across two pools. */
 function removeCardEverywhere(player: ServerPlayerState, cardId: string): void {
   player.hand = player.hand.filter((c) => c.id !== cardId);
   player.discardPile = player.discardPile.filter((c) => c.id !== cardId);
   player.drawPile = player.drawPile.filter((c) => c.id !== cardId);
+  player.servePile = player.servePile.filter((c) => c.id !== cardId);
 }
 
 function reorderByIds(cards: WireCard[], order: string[]): WireCard[] {
@@ -167,7 +182,11 @@ function selectCharacter(state: GameState, slot: PlayerSlot, characterId: string
   player.hand = deck.slice(0, INITIAL_HAND_SIZE);
   player.drawPile = deck.slice(INITIAL_HAND_SIZE);
   player.discardPile = [];
-  player.playedCard = null;
+  player.servePile = [];
+  player.revealedServe = [];
+  // Always starts small, whether newly picking Alice or switching away from
+  // (and potentially back to) her.
+  player.aliceCoinBig = false;
   // Different characters field different numbers of minions, and different
   // starting health for both main and minion coins — apply all of that now
   // that the character is known. Re-centers minions on the same spot
@@ -198,26 +217,6 @@ function returnFromDiscard(player: ServerPlayerState): void {
   player.hand = [...player.hand, withNewId(top)];
 }
 
-function playCard(player: ServerPlayerState, cardId: string): void {
-  if (player.playedCard) {
-    return;
-  }
-  const card = player.hand.find((c) => c.id === cardId);
-  if (!card) {
-    return;
-  }
-  player.hand = player.hand.filter((c) => c.id !== cardId);
-  player.playedCard = withNewId(card);
-}
-
-function removePlayedCard(player: ServerPlayerState): void {
-  if (!player.playedCard) {
-    return;
-  }
-  player.hand = [...player.hand, withNewId(player.playedCard)];
-  player.playedCard = null;
-}
-
 function dropOnDrawPile(player: ServerPlayerState, cardId: string, position: PilePosition): void {
   const card = findDraggableCard(player, cardId);
   if (!card) {
@@ -241,7 +240,10 @@ function dropOntoHand(player: ServerPlayerState, cardId: string, index: number):
     // Already in hand — a plain in-fan reorder, handled by reorderHand.
     return;
   }
-  const card = player.discardPile.find((c) => c.id === cardId) ?? player.drawPile.find((c) => c.id === cardId);
+  const card =
+    player.discardPile.find((c) => c.id === cardId) ??
+    player.drawPile.find((c) => c.id === cardId) ??
+    player.servePile.find((c) => c.id === cardId);
   if (!card) {
     return;
   }
@@ -277,7 +279,9 @@ function resetPlayerToCharacterSelect(player: ServerPlayerState): void {
   player.drawPile = [];
   player.discardPile = [];
   player.hand = [];
-  player.playedCard = null;
+  player.servePile = [];
+  player.revealedServe = [];
+  player.aliceCoinBig = false;
   // token/connected are identity, not game progress — left untouched.
 }
 
@@ -285,6 +289,7 @@ function returnToMainMenu(state: GameState): void {
   state.phase = 'character-select';
   state.selectedMapId = null;
   state.coins = createInitialCoins();
+  state.serve = null;
   resetPlayerToCharacterSelect(state.players.player1);
   resetPlayerToCharacterSelect(state.players.player2);
 }
@@ -371,6 +376,75 @@ function updateCoinHealth(
   coin.health = Math.round(health);
 }
 
+/** Like coin dragging/health, either player can flip this — it's rendered
+ *  (mirrored) on both screens, not just the Alice player's own. A no-op if
+ *  `owner` isn't currently playing Alice (e.g. a stale click from just
+ *  before they switched characters). */
+/** Only one serve can be running at a time, whoever started it — that's
+ *  what disables both players' action buttons for its duration. Starting
+ *  one also drops whatever serve this player was still being shown, so the
+ *  two can never fight over the center of the board. */
+function activateServeMode(state: GameState, slot: PlayerSlot, mode: ServeMode): void {
+  if (state.phase !== 'playing' || state.serve) {
+    return;
+  }
+  const player = state.players[slot];
+  state.serve = { mode, activator: slot };
+  player.servePile = [];
+  player.revealedServe = [];
+}
+
+/** Backs out of a serve: anything staged goes back to the activator's hand
+ *  and the mode ends, re-enabling both players' buttons. */
+function cancelServeMode(state: GameState, slot: PlayerSlot): void {
+  if (state.serve?.activator !== slot) {
+    return;
+  }
+  const player = state.players[slot];
+  player.hand = [...player.hand, ...player.servePile.map(withNewId)];
+  player.servePile = [];
+  state.serve = null;
+}
+
+function serveCard(state: GameState, slot: PlayerSlot, cardId: string, index: number): void {
+  if (state.serve?.activator !== slot) {
+    return;
+  }
+  const player = state.players[slot];
+  const card = player.hand.find((c) => c.id === cardId);
+  if (!card) {
+    return;
+  }
+  player.hand = player.hand.filter((c) => c.id !== cardId);
+  const at = Math.max(0, Math.min(index, player.servePile.length));
+  player.servePile = [...player.servePile.slice(0, at), withNewId(card), ...player.servePile.slice(at)];
+}
+
+/** Commits the staged cards: they land on top of the server's own discard
+ *  pile, the opponent gets their own copy to look over until they dismiss
+ *  it, and the mode ends. */
+function confirmServe(state: GameState, slot: PlayerSlot): void {
+  if (state.serve?.activator !== slot) {
+    return;
+  }
+  const player = state.players[slot];
+  if (player.servePile.length === 0) {
+    return;
+  }
+  state.players[opponentSlotOf(slot)].revealedServe = player.servePile.map(withNewId);
+  player.discardPile = [...player.servePile.map(withNewId), ...player.discardPile];
+  player.servePile = [];
+  state.serve = null;
+}
+
+function toggleAliceCoin(state: GameState, owner: PlayerSlot): void {
+  const player = state.players[owner];
+  if (player.characterId !== 'alice') {
+    return;
+  }
+  player.aliceCoinBig = !player.aliceCoinBig;
+}
+
 export function applyAction(state: GameState, slot: PlayerSlot, action: GameAction): void {
   const player = state.players[slot];
   switch (action.type) {
@@ -391,12 +465,6 @@ export function applyAction(state: GameState, slot: PlayerSlot, action: GameActi
       return;
     case 'returnFromDiscard':
       returnFromDiscard(player);
-      return;
-    case 'playCard':
-      playCard(player, action.cardId);
-      return;
-    case 'removePlayedCard':
-      removePlayedCard(player);
       return;
     case 'dropOnDrawPile':
       dropOnDrawPile(player, action.cardId, action.position);
@@ -437,6 +505,27 @@ export function applyAction(state: GameState, slot: PlayerSlot, action: GameActi
     case 'updateCoinHealth':
       updateCoinHealth(state, action.coinOwner, action.coinType, action.minionIndex, action.health);
       return;
+    case 'toggleAliceCoin':
+      toggleAliceCoin(state, action.owner);
+      return;
+    case 'activateServeMode':
+      activateServeMode(state, slot, action.mode);
+      return;
+    case 'cancelServeMode':
+      cancelServeMode(state, slot);
+      return;
+    case 'serveCard':
+      serveCard(state, slot, action.cardId, action.index);
+      return;
+    case 'reorderServePile':
+      player.servePile = reorderByIds(player.servePile, action.order);
+      return;
+    case 'confirmServe':
+      confirmServe(state, slot);
+      return;
+    case 'clearRevealedServe':
+      player.revealedServe = [];
+      return;
   }
 }
 
@@ -453,14 +542,17 @@ export function buildView(state: GameState, forSlot: PlayerSlot): GameStateView 
     mySlot: forSlot,
     selectedMapId: state.selectedMapId,
     coins: state.coins,
+    serve: state.serve,
     me: {
       characterId: me.characterId,
       connected: me.connected,
       drawPileCount: me.drawPile.length,
       drawPile: me.drawPile,
       discardPile: me.discardPile,
-      playedCard: me.playedCard,
       hand: me.hand,
+      servePile: me.servePile,
+      revealedServe: me.revealedServe,
+      aliceCoinBig: me.aliceCoinBig,
     },
     opponent: opponent.token
       ? {
@@ -468,8 +560,8 @@ export function buildView(state: GameState, forSlot: PlayerSlot): GameStateView 
           connected: opponent.connected,
           drawPileCount: opponent.drawPile.length,
           discardPile: opponent.discardPile,
-          playedCard: opponent.playedCard,
           handCount: opponent.hand.length,
+          aliceCoinBig: opponent.aliceCoinBig,
         }
       : null,
   };
