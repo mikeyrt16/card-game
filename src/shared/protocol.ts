@@ -56,6 +56,23 @@ export interface WireCard {
   slug: string;
 }
 
+/** A card lying on the map, dropped there out of someone's hand. Position
+ *  is in the same shared percentage-of-the-map frame the coins use, so both
+ *  players agree on where it is however their screen is sized or oriented. */
+export interface BoardCardView {
+  id: string;
+  /** Who dropped it — they're the only one who can flip it, and it wears
+   *  their card back while face down. */
+  owner: PlayerSlot;
+  x: number;
+  y: number;
+  faceUp: boolean;
+  /** What the card actually is. Only filled in once it's face up, or if
+   *  it's yours — a face-down card of the opponent's is never sent, so it
+   *  can't be read off the wire. */
+  card: WireCard | null;
+}
+
 export interface HelloMessage {
   type: 'hello';
   token: string;
@@ -115,7 +132,14 @@ export type GameAction =
   | { type: 'moveCursor'; x: number; y: number }
   /** Reports whether the sender has their own hand dock raised, so the
    *  other player's mirrored copy of it can move in step. */
-  | { type: 'setHandOpen'; open: boolean };
+  | { type: 'setHandOpen'; open: boolean }
+  /** Puts a card down on the map at x/y (percentages of the map image).
+   *  Coming from a hand/pile it lands face down; a card already on the
+   *  board is simply moved, keeping whichever way up it was. */
+  | { type: 'dropCardOnBoard'; cardId: string; x: number; y: number }
+  /** Turns one of the sender's own board cards over. Nobody can flip a
+   *  card they didn't put down. */
+  | { type: 'flipBoardCard'; cardId: string };
 
 export type ClientAction = HelloMessage | GameAction;
 
@@ -150,6 +174,8 @@ export interface GameStateView {
   /** Fully public/shared — both players always see every coin's real
    *  position and drag state, identically. */
   coins: Record<PlayerSlot, PlayerCoins>;
+  /** Every card lying face down or face up on the map, both players'. */
+  boardCards: BoardCardView[];
   /** The receiving player's own board — hand and the draw pile's actual
    *  contents are only ever sent to their owner, for a deliberate "look
    *  through your deck" view; the opponent's stay hidden as counts. */

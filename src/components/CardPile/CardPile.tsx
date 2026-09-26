@@ -67,7 +67,9 @@ export function CardPile({
 
   return (
     <div
-      className={`${styles.pile} ${placementClass}${disabled ? ` ${styles.disabled}` : ''}`}
+      className={[styles.pile, placementClass, disabled && styles.disabled, isMenuOpen && styles.pileMenuOpen]
+        .filter(Boolean)
+        .join(' ')}
       onMouseEnter={
         hasMenu
           ? () => {

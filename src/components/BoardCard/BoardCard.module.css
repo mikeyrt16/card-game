@@ -1,0 +1,51 @@
+.card {
+  position: absolute;
+  /* Matches the card that was following the pointer, so releasing it drops
+     it at the size it already appeared to be. */
+  width: var(--dragged-card-width);
+  aspect-ratio: 250 / 349;
+  /* Centred on the point it was dropped at. */
+  transform: translate(-50%, -50%);
+  cursor: grab;
+  /* Gives the two faces something to rotate through. */
+  perspective: 900px;
+  /* Beneath the coins, which are rendered after these and share this
+     depth — a card lies on the board, the pieces sit on top of it. */
+  z-index: 1;
+}
+
+.card:active {
+  cursor: grabbing;
+}
+
+.inner {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  transform-style: preserve-3d;
+  transition: transform 0.45s ease;
+}
+
+/* Face down is the resting state, so the turn-over is a half rotation from
+   0deg — the same flip the Alice coin uses. */
+.flipped {
+  transform: rotateY(180deg);
+}
+
+.face {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  border-radius: 10px;
+  backface-visibility: hidden;
+  background: #111;
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.55);
+  user-select: none;
+  -webkit-user-drag: none;
+}
+
+.faceUp {
+  transform: rotateY(180deg);
+}

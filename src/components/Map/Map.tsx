@@ -1,8 +1,18 @@
-import { Fragment, useEffect, useRef, useState, type CSSProperties, type PointerEvent as ReactPointerEvent } from 'react';
-import { getCoinImage } from '../../data/assets';
+import {
+  Fragment,
+  useEffect,
+  useRef,
+  useState,
+  type CSSProperties,
+  type DragEvent,
+  type PointerEvent as ReactPointerEvent,
+} from 'react';
+import { getCardBackImage, getCardImage, getCoinImage } from '../../data/assets';
 import { characterColorHex, characterGlowRgb, hexToRgb } from '../../data/characterColors';
+import type { CardData } from '../../data/cards';
+import { BoardCard } from '../BoardCard/BoardCard';
 import { HealthEditDialog } from '../HealthEditDialog/HealthEditDialog';
-import type { CoinState, CoinType, PlayerCoins, PlayerSlot } from '../../shared/protocol';
+import type { BoardCardView, CoinState, CoinType, PlayerCoins, PlayerSlot } from '../../shared/protocol';
 import styles from './Map.module.css';
 
 const SLOTS: PlayerSlot[] = ['player1', 'player2'];
@@ -189,6 +199,8 @@ interface MapProps {
   /** True for the player shown the inverse (180°-rotated) map art. */
   inverted: boolean;
   coins: Record<PlayerSlot, PlayerCoins>;
+  /** Cards lying on the map, both players'. */
+  boardCards: BoardCardView[];
   mySlot: PlayerSlot;
   /** Which character each slot picked — null for a slot that hasn't (in
    *  practice always set once phase is 'playing', but guarded regardless). */
@@ -197,6 +209,17 @@ interface MapProps {
   onCoinMove: (owner: PlayerSlot, coinType: CoinType, minionIndex: number | undefined, x: number, y: number) => void;
   onCoinDragEnd: (owner: PlayerSlot, coinType: CoinType, minionIndex: number | undefined) => void;
   onUpdateCoinHealth: (owner: PlayerSlot, coinType: CoinType, minionIndex: number | undefined, health: number) => void;
+  /** A card was dropped on open board — either newly played out of a hand
+   *  or pile, or one already lying here being slid somewhere else. */
+  onDropCardOnBoard: (cardId: string, x: number, y: number) => void;
+  onFlipBoardCard: (cardId: string) => void;
+  onBoardCardDragStart: (card: CardData, centreOffset: { x: number; y: number }) => void;
+  onBoardCardDragEnd: () => void;
+  /** Set while a board card is mid-drag: the vector from the pointer to
+   *  that card's centre, so releasing puts it down where it looks like it
+   *  is rather than snapping its centre to the cursor. Null when the card
+   *  being dragged came from a hand or pile. */
+  draggedCardCentreOffset: { x: number; y: number } | null;
 }
 
 /** The game board: the map art itself, plus (increasingly) whatever lives on
@@ -207,12 +230,18 @@ export function Map({
   dimmed,
   inverted,
   coins,
+  boardCards,
   mySlot,
   characterIds,
   onCoinDragStart,
   onCoinMove,
   onCoinDragEnd,
   onUpdateCoinHealth,
+  onDropCardOnBoard,
+  onFlipBoardCard,
+  onBoardCardDragStart,
+  onBoardCardDragEnd,
+  draggedCardCentreOffset,
 }: MapProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const imgRef = useRef<HTMLImageElement>(null);
@@ -350,8 +379,33 @@ export function Map({
     onCoinDragEnd(owner, coinType, minionIndex);
   };
 
+  /** Catches any card dropped on open board. The piles, their drop zones
+   *  and the hand all sit outside this container in the DOM, so a drop they
+   *  claimed never reaches here — which is what keeps them working exactly
+   *  as before while everywhere else becomes droppable. */
+  const handleBoardDrop = (e: DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    const cardId = e.dataTransfer.getData('text/plain');
+    // Where the card's centre has been riding, not where the pointer is —
+    // otherwise a card grabbed by its corner would jump so its middle
+    // landed under the cursor.
+    const point = toImagePercent(
+      e.clientX + (draggedCardCentreOffset?.x ?? 0),
+      e.clientY + (draggedCardCentreOffset?.y ?? 0),
+    );
+    if (cardId && point) {
+      onDropCardOnBoard(cardId, point.x, point.y);
+    }
+  };
+
   return (
-    <div ref={containerRef} className={styles.container}>
+    <div
+      ref={containerRef}
+      className={styles.container}
+      // Without this the browser refuses the drop and the card springs back.
+      onDragOver={(e) => e.preventDefault()}
+      onDrop={handleBoardDrop}
+    >
       <img
         ref={imgRef}
         src={image}
@@ -363,6 +417,46 @@ export function Map({
           setImageSize({ width: img.naturalWidth, height: img.naturalHeight });
         }}
       />
+      {geometry &&
+        boardCards.map((boardCard) => {
+          const ownerCharacterId = characterIds[boardCard.owner];
+          if (!ownerCharacterId) {
+            return null;
+          }
+          const view = toViewPercent(boardCard, inverted);
+          const { x: pxX, y: pxY } = imagePercentToContainerPx(view.x, view.y, geometry);
+          const backImage = getCardBackImage(ownerCharacterId);
+          const frontImage = boardCard.card
+            ? getCardImage(boardCard.card.characterId, boardCard.card.slug)
+            : null;
+          const isMine = boardCard.owner === mySlot;
+
+          return (
+            <BoardCard
+              key={boardCard.id}
+              id={boardCard.id}
+              left={pxX}
+              top={pxY}
+              faceUp={boardCard.faceUp}
+              backImage={backImage}
+              frontImage={frontImage}
+              canFlip={isMine}
+              onFlip={() => onFlipBoardCard(boardCard.id)}
+              // What's dragged is whichever side is showing, so a card kept
+              // face down stays face down in the preview too.
+              onDragStart={(centreOffset) =>
+                onBoardCardDragStart(
+                  {
+                    id: boardCard.id,
+                    image: boardCard.faceUp && frontImage ? frontImage : backImage,
+                  },
+                  centreOffset,
+                )
+              }
+              onDragEnd={onBoardCardDragEnd}
+            />
+          );
+        })}
       {geometry &&
         SLOTS.map((owner) => {
           const characterId = characterIds[owner];

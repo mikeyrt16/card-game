@@ -1,5 +1,6 @@
 import { getCharacterDef } from '../src/shared/characters';
 import type {
+  BoardCardView,
   CoinState,
   CoinType,
   CursorPosition,
@@ -14,6 +15,17 @@ import type {
 
 const INITIAL_HAND_SIZE = 5;
 
+/** A card this player has put down on the map. Kept per-player rather than
+ *  in one shared list so it flows through the same card-pool helpers as
+ *  their hand and piles — a board card can be picked back up into any of
+ *  them — and so ownership (who may flip it) is implicit. */
+interface ServerBoardCard {
+  card: WireCard;
+  x: number;
+  y: number;
+  faceUp: boolean;
+}
+
 interface ServerPlayerState {
   token: string | null;
   connected: boolean;
@@ -21,6 +33,7 @@ interface ServerPlayerState {
   drawPile: WireCard[];
   discardPile: WireCard[];
   hand: WireCard[];
+  boardCards: ServerBoardCard[];
   /** Alice's special-component coin — see `toggleAliceCoin`. Unused (stays
    *  false) for every other character. */
   aliceCoinBig: boolean;
@@ -48,6 +61,7 @@ export function createEmptyPlayer(): ServerPlayerState {
     drawPile: [],
     discardPile: [],
     hand: [],
+    boardCards: [],
     aliceCoinBig: false,
     cursor: null,
     handOpen: false,
@@ -138,18 +152,20 @@ function findDraggableCard(player: ServerPlayerState, cardId: string): WireCard 
   return (
     player.hand.find((c) => c.id === cardId) ??
     player.discardPile.find((c) => c.id === cardId) ??
-    player.drawPile.find((c) => c.id === cardId)
+    player.drawPile.find((c) => c.id === cardId) ??
+    player.boardCards.find((b) => b.card.id === cardId)?.card
   );
 }
 
 /** Strips a card id out of every pool it could currently be sitting in —
  *  used before re-inserting it elsewhere (as a fresh instance), so a card
- *  dragged out of an open hand/discard/draw preview can never end up
- *  duplicated across two pools. */
+ *  dragged out of an open hand/discard/draw preview, or picked up off the
+ *  map, can never end up duplicated across two pools. */
 function removeCardEverywhere(player: ServerPlayerState, cardId: string): void {
   player.hand = player.hand.filter((c) => c.id !== cardId);
   player.discardPile = player.discardPile.filter((c) => c.id !== cardId);
   player.drawPile = player.drawPile.filter((c) => c.id !== cardId);
+  player.boardCards = player.boardCards.filter((b) => b.card.id !== cardId);
 }
 
 function reorderByIds(cards: WireCard[], order: string[]): WireCard[] {
@@ -179,6 +195,7 @@ function selectCharacter(state: GameState, slot: PlayerSlot, characterId: string
   player.hand = deck.slice(0, INITIAL_HAND_SIZE);
   player.drawPile = deck.slice(INITIAL_HAND_SIZE);
   player.discardPile = [];
+  player.boardCards = [];
   // Always starts small, whether newly picking Alice or switching away from
   // (and potentially back to) her.
   player.aliceCoinBig = false;
@@ -235,7 +252,10 @@ function dropOntoHand(player: ServerPlayerState, cardId: string, index: number):
     // Already in hand — a plain in-fan reorder, handled by reorderHand.
     return;
   }
-  const card = player.discardPile.find((c) => c.id === cardId) ?? player.drawPile.find((c) => c.id === cardId);
+  const card =
+    player.discardPile.find((c) => c.id === cardId) ??
+    player.drawPile.find((c) => c.id === cardId) ??
+    player.boardCards.find((b) => b.card.id === cardId)?.card;
   if (!card) {
     return;
   }
@@ -271,6 +291,7 @@ function resetPlayerToCharacterSelect(player: ServerPlayerState): void {
   player.drawPile = [];
   player.discardPile = [];
   player.hand = [];
+  player.boardCards = [];
   player.aliceCoinBig = false;
   // token/connected are identity, not game progress — left untouched.
 }
@@ -369,6 +390,44 @@ function updateCoinHealth(
  *  (mirrored) on both screens, not just the Alice player's own. A no-op if
  *  `owner` isn't currently playing Alice (e.g. a stale click from just
  *  before they switched characters). */
+/** Puts a card down on the map, or moves one that's already there. A card
+ *  arriving from a hand or pile always lands face down; one already on the
+ *  board keeps whichever way up it was, so sliding it about can't expose
+ *  it. */
+function dropCardOnBoard(player: ServerPlayerState, cardId: string, x: number, y: number): void {
+  if (!Number.isFinite(x) || !Number.isFinite(y)) {
+    return;
+  }
+  const clampedX = Math.max(0, Math.min(100, x));
+  const clampedY = Math.max(0, Math.min(100, y));
+
+  const placed = player.boardCards.find((b) => b.card.id === cardId);
+  if (placed) {
+    placed.x = clampedX;
+    placed.y = clampedY;
+    return;
+  }
+
+  const card = findDraggableCard(player, cardId);
+  if (!card) {
+    return;
+  }
+  removeCardEverywhere(player, cardId);
+  player.boardCards = [
+    ...player.boardCards,
+    { card: withNewId(card), x: clampedX, y: clampedY, faceUp: false },
+  ];
+}
+
+function flipBoardCard(player: ServerPlayerState, cardId: string): void {
+  const placed = player.boardCards.find((b) => b.card.id === cardId);
+  if (!placed) {
+    // Not theirs to turn over — only whoever put it down can.
+    return;
+  }
+  placed.faceUp = !placed.faceUp;
+}
+
 function moveCursor(player: ServerPlayerState, x: number, y: number): void {
   if (!Number.isFinite(x) || !Number.isFinite(y)) {
     return;
@@ -453,7 +512,32 @@ export function applyAction(state: GameState, slot: PlayerSlot, action: GameActi
     case 'setHandOpen':
       player.handOpen = action.open;
       return;
+    case 'dropCardOnBoard':
+      dropCardOnBoard(player, action.cardId, action.x, action.y);
+      return;
+    case 'flipBoardCard':
+      flipBoardCard(player, action.cardId);
+      return;
   }
+}
+
+/** Board cards for one viewer. A face-down card's identity is withheld
+ *  from everyone but the player who put it there — they already know what
+ *  they played, and their client needs it to animate the turn-over — so an
+ *  opponent's face-down card genuinely cannot be read off the wire. */
+function buildBoardCardViews(
+  player: ServerPlayerState,
+  owner: PlayerSlot,
+  forSlot: PlayerSlot,
+): BoardCardView[] {
+  return player.boardCards.map((placed) => ({
+    id: placed.card.id,
+    owner,
+    x: placed.x,
+    y: placed.y,
+    faceUp: placed.faceUp,
+    card: placed.faceUp || owner === forSlot ? placed.card : null,
+  }));
 }
 
 function opponentSlotOf(slot: PlayerSlot): PlayerSlot {
@@ -469,6 +553,10 @@ export function buildView(state: GameState, forSlot: PlayerSlot): GameStateView 
     mySlot: forSlot,
     selectedMapId: state.selectedMapId,
     coins: state.coins,
+    boardCards: [
+      ...buildBoardCardViews(state.players.player1, 'player1', forSlot),
+      ...buildBoardCardViews(state.players.player2, 'player2', forSlot),
+    ],
     me: {
       characterId: me.characterId,
       connected: me.connected,

@@ -5,6 +5,7 @@ import { CardPile } from '../components/CardPile/CardPile';
 import { PileDropZone, type PilePosition } from '../components/PileDropZone/PileDropZone';
 import { PlayerHand } from '../components/PlayerHand/PlayerHand';
 import { ConfirmDialog } from '../components/ConfirmDialog/ConfirmDialog';
+import { DragPreview } from '../components/DragPreview/DragPreview';
 import { InfoButton } from '../components/InfoButton/InfoButton';
 import { CharacterCardDialog } from '../components/CharacterCardDialog/CharacterCardDialog';
 import { GameMenu } from '../components/GameMenu/GameMenu';
@@ -70,6 +71,11 @@ function Game({ state, character, map, send }: GameProps) {
   // readable during dragover/dragenter, only at drop, so this has to be
   // tracked as real state rather than read off the native drag event).
   const [draggedCard, setDraggedCard] = useState<CardData | null>(null);
+  // Only set for a card picked up off the board, which is held at the exact
+  // point it was grabbed rather than at a fixed spot under the cursor.
+  // Written at the start of *every* drag (to null for hand/pile cards), so
+  // a leftover offset can never carry into the next one.
+  const [draggedCardCentreOffset, setDraggedCardCentreOffset] = useState<{ x: number; y: number } | null>(null);
   const [isViewingDiscard, setIsViewingDiscard] = useState(false);
   const [isViewingDraw, setIsViewingDraw] = useState(false);
   // A read-only look at the opponent's discard pile — no dragging/reorder,
@@ -205,6 +211,25 @@ function Game({ state, character, map, send }: GameProps) {
     send({ type: 'dropOnDiscardPile', cardId, position });
   };
 
+  /** Shared by the hand and both pile previews. Cards from those hang from
+   *  a fixed point under the cursor, so any offset left over from a
+   *  board-card drag is cleared here rather than carrying into this one. */
+  const handleCardDragStart = (card: CardData) => {
+    setIsDragActive(true);
+    setDraggedCard(card);
+    setDraggedCardCentreOffset(null);
+  };
+
+  const handleDropCardOnBoard = (cardId: string, x: number, y: number) => {
+    setIsDragActive(false);
+    setDraggedCard(null);
+    // Hides it from the hand for the round trip if that's where it came
+    // from; a no-op for a card already lying on the board, whose id isn't
+    // in any of the filtered piles.
+    setMovingCardId(cardId);
+    send({ type: 'dropCardOnBoard', cardId, x, y });
+  };
+
   const handleDropOntoHand = (cardId: string, index: number) => {
     setIsDragActive(false);
     setDraggedCard(null);
@@ -239,6 +264,19 @@ function Game({ state, character, map, send }: GameProps) {
           onUpdateCoinHealth={(owner, coinType, minionIndex, health) =>
             send({ type: 'updateCoinHealth', coinOwner: owner, coinType, minionIndex, health })
           }
+          boardCards={state.boardCards}
+          onDropCardOnBoard={handleDropCardOnBoard}
+          onFlipBoardCard={(cardId) => send({ type: 'flipBoardCard', cardId })}
+          draggedCardCentreOffset={draggedCardCentreOffset}
+          onBoardCardDragStart={(card, centreOffset) => {
+            setIsDragActive(true);
+            setDraggedCard(card);
+            setDraggedCardCentreOffset(centreOffset);
+          }}
+          onBoardCardDragEnd={() => {
+            setIsDragActive(false);
+            setDraggedCard(null);
+          }}
         />
       )}
       <GameMenu onReturnToMainMenu={() => send({ type: 'returnToMainMenu' })} />
@@ -298,10 +336,7 @@ function Game({ state, character, map, send }: GameProps) {
         forceOpen={isViewingDiscard || isViewingDraw}
         onDockOpenChange={setIsHandOpen}
         incomingCard={draggedCard && !hand.some((c) => c.id === draggedCard.id) ? draggedCard : undefined}
-        onCardDragStart={(card) => {
-          setIsDragActive(true);
-          setDraggedCard(card);
-        }}
+        onCardDragStart={handleCardDragStart}
         onCardDragEnd={() => {
           setIsDragActive(false);
           setDraggedCard(null);
@@ -373,10 +408,7 @@ function Game({ state, character, map, send }: GameProps) {
           <PlayerHand
             cards={drawPile}
             variant="preview"
-            onCardDragStart={(card) => {
-              setIsDragActive(true);
-              setDraggedCard(card);
-            }}
+            onCardDragStart={handleCardDragStart}
             onCardDragEnd={() => {
               setIsDragActive(false);
               setDraggedCard(null);
@@ -395,10 +427,7 @@ function Game({ state, character, map, send }: GameProps) {
           <PlayerHand
             cards={[...discardPile].reverse()}
             variant="preview"
-            onCardDragStart={(card) => {
-              setIsDragActive(true);
-              setDraggedCard(card);
-            }}
+            onCardDragStart={handleCardDragStart}
             onCardDragEnd={() => {
               setIsDragActive(false);
               setDraggedCard(null);
@@ -424,6 +453,7 @@ function Game({ state, character, map, send }: GameProps) {
         </div>
       )}
       {opponent?.cursor && <OpponentCursor position={opponent.cursor} />}
+      {draggedCard && <DragPreview card={draggedCard} centreOffset={draggedCardCentreOffset} />}
       {shuffleConfirm && (
         <ConfirmDialog
           message={`Shuffle the ${shuffleConfirm === 'draw' ? 'deck' : 'discard pile'}?`}
