@@ -5,9 +5,10 @@
      release, so dropping it doesn't change its size. */
   width: var(--dragged-card-width);
   aspect-ratio: 250 / 349;
-  /* Held near its top edge rather than its middle, so it hangs below the
-     cursor instead of burying whatever is being hovered. */
-  transform: translate(-50%, -16px);
+  /* Always placed by its centre; where that centre goes relative to the
+     pointer is worked out in draggedCardCentre.ts, which a drop onto the
+     board reads from too, so the card lands exactly where it was shown. */
+  transform: translate(-50%, -50%);
   border-radius: 12px;
   overflow: hidden;
   background: #111;

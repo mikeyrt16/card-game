@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import type { CardData } from '../../data/cards';
+import { draggedCardCentre } from './draggedCardCentre';
 import styles from './DragPreview.module.css';
 
 interface DragPreviewProps {
@@ -48,18 +49,10 @@ export function DragPreview({ card, centreOffset }: DragPreviewProps) {
     return null;
   }
 
-  // Centring on the grabbed offset overrides the stylesheet's default
-  // "hang below the cursor" anchor.
-  const placement = centreOffset
-    ? {
-        left: `${point.x + centreOffset.x}px`,
-        top: `${point.y + centreOffset.y}px`,
-        transform: 'translate(-50%, -50%)',
-      }
-    : { left: `${point.x}px`, top: `${point.y}px` };
+  const centre = draggedCardCentre(point, centreOffset);
 
   return (
-    <div className={styles.preview} style={placement}>
+    <div className={styles.preview} style={{ left: `${centre.x}px`, top: `${centre.y}px` }}>
       <img src={card.image} alt="" className={styles.image} draggable={false} />
     </div>
   );

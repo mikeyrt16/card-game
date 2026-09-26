@@ -11,6 +11,7 @@ import { getCardBackImage, getCardImage, getCoinImage } from '../../data/assets'
 import { characterColorHex, characterGlowRgb, hexToRgb } from '../../data/characterColors';
 import type { CardData } from '../../data/cards';
 import { BoardCard } from '../BoardCard/BoardCard';
+import { draggedCardCentre } from '../DragPreview/draggedCardCentre';
 import { HealthEditDialog } from '../HealthEditDialog/HealthEditDialog';
 import type { BoardCardView, CoinState, CoinType, PlayerCoins, PlayerSlot } from '../../shared/protocol';
 import styles from './Map.module.css';
@@ -386,13 +387,12 @@ export function Map({
   const handleBoardDrop = (e: DragEvent<HTMLDivElement>) => {
     e.preventDefault();
     const cardId = e.dataTransfer.getData('text/plain');
-    // Where the card's centre has been riding, not where the pointer is —
-    // otherwise a card grabbed by its corner would jump so its middle
-    // landed under the cursor.
-    const point = toImagePercent(
-      e.clientX + (draggedCardCentreOffset?.x ?? 0),
-      e.clientY + (draggedCardCentreOffset?.y ?? 0),
-    );
+    // Where the card's centre has actually been riding, not where the
+    // pointer is. The two are far apart for a card out of a hand, which
+    // hangs well below the cursor — dropping it at the pointer would land
+    // it a long way above where it was shown.
+    const centre = draggedCardCentre({ x: e.clientX, y: e.clientY }, draggedCardCentreOffset);
+    const point = toImagePercent(centre.x, centre.y);
     if (cardId && point) {
       onDropCardOnBoard(cardId, point.x, point.y);
     }
