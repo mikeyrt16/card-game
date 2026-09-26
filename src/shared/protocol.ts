@@ -139,9 +139,33 @@ export type GameAction =
   | { type: 'dropCardOnBoard'; cardId: string; x: number; y: number }
   /** Turns one of the sender's own board cards over. Nobody can flip a
    *  card they didn't put down. */
-  | { type: 'flipBoardCard'; cardId: string };
+  | { type: 'flipBoardCard'; cardId: string }
+  /** Reports where the card the sender is dragging currently is, so the
+   *  other player can watch it move. Throttled with the cursor it travels
+   *  with, and sent from the same pointer events, so the two stay in step. */
+  | { type: 'dragCardTo'; cardId: string; x: number; y: number }
+  | { type: 'endCardDrag' };
 
 export type ClientAction = HelloMessage | GameAction;
+
+/** A card a player currently has picked up, for the other player to watch
+ *  move. Position is the card's centre as a percentage of the dragging
+ *  player's own viewport — the same frame the cursor uses, so it stays
+ *  glued to their pointer on a screen of any size. */
+export interface DraggedCardView {
+  /** Which card it is. Safe to send even for a card out of a hand: it's an
+   *  opaque id that reveals nothing on its own, and it's what lets a card
+   *  picked up off the board be hidden there while it's being carried —
+   *  otherwise the original and the floating copy show at once. */
+  cardId: string;
+  x: number;
+  y: number;
+  /** Only filled in when the card's face is already public knowledge: one
+   *  lying face up on the board, or one out of a discard pile. Anything out
+   *  of a hand or draw pile stays null and is drawn as a back, so picking a
+   *  card up can't leak what it is. */
+  card: WireCard | null;
+}
 
 export interface PlayerView {
   characterId: string | null;
@@ -159,6 +183,8 @@ export interface PlayerView {
    *  player's mirrored view of that hand can match it (still face down —
    *  only the count is ever sent, never the cards). */
   handOpen: boolean;
+  /** The card this player is currently dragging, or null. */
+  draggedCard: DraggedCardView | null;
 }
 
 export interface GameStateView {

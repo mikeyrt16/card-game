@@ -6,11 +6,13 @@ import { PileDropZone, type PilePosition } from '../components/PileDropZone/Pile
 import { PlayerHand } from '../components/PlayerHand/PlayerHand';
 import { ConfirmDialog } from '../components/ConfirmDialog/ConfirmDialog';
 import { DragPreview } from '../components/DragPreview/DragPreview';
+import { draggedCardCentre } from '../components/DragPreview/draggedCardCentre';
 import { InfoButton } from '../components/InfoButton/InfoButton';
 import { CharacterCardDialog } from '../components/CharacterCardDialog/CharacterCardDialog';
 import { GameMenu } from '../components/GameMenu/GameMenu';
 import { Map } from '../components/Map/Map';
 import { OpponentCursor } from '../components/OpponentCursor/OpponentCursor';
+import { OpponentDraggedCard } from '../components/OpponentDraggedCard/OpponentDraggedCard';
 import { toClientCard, type CardData } from '../data/cards';
 import { getCharacter, type Character } from '../data/characters';
 import { MAPS, type MapInfo } from '../data/maps';
@@ -120,6 +122,17 @@ function Game({ state, character, map, send }: GameProps) {
   const opponentCharacter = opponent?.characterId ? getCharacter(opponent.characterId) : undefined;
   const opponentDiscardPile = opponent ? opponent.discardPile.map(toClientCard) : [];
   const opponentCardBack = opponentCharacter?.cardBack ?? character.cardBack;
+  // A board card the opponent has picked up is hidden from the map for as
+  // long as they're holding it: their floating copy of it is the one to
+  // watch, not both at once. Safe to drop outright here rather than merely
+  // style it away, the way our own dragged card has to be — on this screen
+  // it isn't a drag source, so nothing depends on it staying mounted. The
+  // untouched array is kept when there's no such card, so its identity is
+  // stable for the map's own effects.
+  const opponentDraggedCardId = opponent?.draggedCard?.cardId ?? null;
+  const boardCards = opponentDraggedCardId
+    ? state.boardCards.filter((boardCard) => boardCard.id !== opponentDraggedCardId)
+    : state.boardCards;
   const characterIds: Record<PlayerSlot, string | null> =
     state.mySlot === 'player1'
       ? { player1: state.me.characterId, player2: opponent?.characterId ?? null }
@@ -164,6 +177,7 @@ function Game({ state, character, map, send }: GameProps) {
   // their window is very unlikely to be the same size as ours.
   const cursorFrameRef = useRef<number | null>(null);
   const pendingCursorRef = useRef<{ x: number; y: number } | null>(null);
+  const pendingDragRef = useRef<{ x: number; y: number } | null>(null);
   useEffect(() => {
     const flush = () => {
       cursorFrameRef.current = null;
@@ -172,25 +186,65 @@ function Game({ state, character, map, send }: GameProps) {
         pendingCursorRef.current = null;
         send({ type: 'moveCursor', x: pending.x, y: pending.y });
       }
+      // Rides the same frame as the cursor, off the same pointer events, so
+      // the card and the hand carrying it can't drift apart over there.
+      const pendingDrag = pendingDragRef.current;
+      if (pendingDrag && draggedCard) {
+        pendingDragRef.current = null;
+        send({ type: 'dragCardTo', cardId: draggedCard.id, x: pendingDrag.x, y: pendingDrag.y });
+      }
     };
-    const handleMouseMove = (e: MouseEvent) => {
-      pendingCursorRef.current = {
-        x: (e.clientX / window.innerWidth) * 100,
-        y: (e.clientY / window.innerHeight) * 100,
-      };
+    const toViewportPercent = (clientX: number, clientY: number) => ({
+      x: (clientX / window.innerWidth) * 100,
+      y: (clientY / window.innerHeight) * 100,
+    });
+    const report = (clientX: number, clientY: number) => {
+      pendingCursorRef.current = toViewportPercent(clientX, clientY);
+      if (draggedCard) {
+        // Derived the same way our own preview places itself, so what the
+        // opponent sees matches what we see.
+        const centre = draggedCardCentre({ x: clientX, y: clientY }, draggedCardCentreOffset);
+        pendingDragRef.current = toViewportPercent(centre.x, centre.y);
+      }
       if (cursorFrameRef.current === null) {
         cursorFrameRef.current = requestAnimationFrame(flush);
       }
     };
+    const handleMouseMove = (e: MouseEvent) => report(e.clientX, e.clientY);
+    const handleDragOver = (e: DragEvent) => {
+      // Drag events report (0, 0) in some browsers, notably the last one of
+      // a gesture — reporting that would fling both into the corner.
+      if (e.clientX === 0 && e.clientY === 0) {
+        return;
+      }
+      report(e.clientX, e.clientY);
+    };
     window.addEventListener('mousemove', handleMouseMove);
+    // `mousemove` goes completely silent for the duration of a native drag,
+    // which is exactly when there's a card to report — `dragover` is what
+    // keeps firing meanwhile. Capture phase so nothing can stop it.
+    document.addEventListener('dragover', handleDragOver, true);
     return () => {
       window.removeEventListener('mousemove', handleMouseMove);
+      document.removeEventListener('dragover', handleDragOver, true);
       if (cursorFrameRef.current !== null) {
         cancelAnimationFrame(cursorFrameRef.current);
         cursorFrameRef.current = null;
       }
     };
-  }, [send]);
+  }, [send, draggedCard, draggedCardCentreOffset]);
+
+  // Tells the opponent to stop drawing the card once we've let go of it.
+  // Watching for the transition rather than just `!draggedCard` keeps this
+  // from firing on mount, and from re-firing on every unrelated re-render.
+  const wasDraggingRef = useRef(false);
+  useEffect(() => {
+    const isDragging = draggedCard !== null;
+    if (wasDraggingRef.current && !isDragging) {
+      send({ type: 'endCardDrag' });
+    }
+    wasDraggingRef.current = isDragging;
+  }, [draggedCard, send]);
 
   const handleDraw = () => send({ type: 'draw' });
   const handleReturnFromDiscard = () => send({ type: 'returnFromDiscard' });
@@ -264,7 +318,7 @@ function Game({ state, character, map, send }: GameProps) {
           onUpdateCoinHealth={(owner, coinType, minionIndex, health) =>
             send({ type: 'updateCoinHealth', coinOwner: owner, coinType, minionIndex, health })
           }
-          boardCards={state.boardCards}
+          boardCards={boardCards}
           onDropCardOnBoard={handleDropCardOnBoard}
           onFlipBoardCard={(cardId) => send({ type: 'flipBoardCard', cardId })}
           draggedCardCentreOffset={draggedCardCentreOffset}
@@ -451,6 +505,15 @@ function Game({ state, character, map, send }: GameProps) {
             hoverOnly
           />
         </div>
+      )}
+      {/* Drawn under their cursor, so the two read as one gesture. A card
+          the server didn't identify for us is one we aren't allowed to
+          see, so it wears their card back. */}
+      {opponent?.draggedCard && (
+        <OpponentDraggedCard
+          position={opponent.draggedCard}
+          image={opponent.draggedCard.card ? toClientCard(opponent.draggedCard.card).image : opponentCardBack}
+        />
       )}
       {opponent?.cursor && <OpponentCursor position={opponent.cursor} />}
       {draggedCard && <DragPreview card={draggedCard} centreOffset={draggedCardCentreOffset} />}

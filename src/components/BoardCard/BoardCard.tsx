@@ -16,10 +16,16 @@ interface BoardCardProps {
   frontImage: string | null;
   /** Only the player who put the card down may turn it over. */
   canFlip: boolean;
+  /** Hides this card while the drag preview is standing in for it, so the
+   *  two aren't on screen at once. */
+  isDragging: boolean;
   onFlip: () => void;
   /** `centreOffset` is the vector from the pointer to the card's centre at
    *  the moment it was grabbed. */
   onDragStart: (centreOffset: { x: number; y: number }) => void;
+  /** Fires repeatedly once the drag is actually under way — which is the
+   *  earliest safe moment to hide this card. See the note on the handler. */
+  onDrag: () => void;
   onDragEnd: () => void;
 }
 
@@ -34,8 +40,10 @@ export function BoardCard({
   backImage,
   frontImage,
   canFlip,
+  isDragging,
   onFlip,
   onDragStart,
+  onDrag,
   onDragEnd,
 }: BoardCardProps) {
   const handleDragStart = (e: DragEvent<HTMLDivElement>) => {
@@ -55,10 +63,17 @@ export function BoardCard({
 
   return (
     <div
-      className={styles.card}
+      className={isDragging ? `${styles.card} ${styles.dragging}` : styles.card}
       style={{ left: `${left}px`, top: `${top}px` }}
       draggable
       onDragStart={handleDragStart}
+      // Hiding this card is deliberately left until `drag` rather than done
+      // in `dragStart` above: restyling the drag source during dragstart
+      // silently aborts the whole native drag (no preview, no drop at all).
+      // `drag` only fires once the gesture is genuinely under way, so by
+      // then it's safe. The card must also stay mounted throughout — an
+      // element removed mid-drag never fires its own dragend.
+      onDrag={onDrag}
       onDragEnd={onDragEnd}
       onDoubleClick={canFlip ? onFlip : undefined}
       role="img"

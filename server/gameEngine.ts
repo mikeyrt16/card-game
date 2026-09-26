@@ -4,6 +4,7 @@ import type {
   CoinState,
   CoinType,
   CursorPosition,
+  DraggedCardView,
   GameAction,
   GamePhase,
   GameStateView,
@@ -44,6 +45,10 @@ interface ServerPlayerState {
    *  other player's screen. Also cleared on disconnect, so it can't stick
    *  open. */
   handOpen: boolean;
+  /** The card they're dragging right now, so the other player can watch it
+   *  move. Only the id is stored — what the opponent is allowed to see of
+   *  it is worked out per broadcast, in buildDraggedCardView. */
+  draggedCard: { cardId: string; x: number; y: number } | null;
 }
 
 export interface GameState {
@@ -65,6 +70,7 @@ export function createEmptyPlayer(): ServerPlayerState {
     aliceCoinBig: false,
     cursor: null,
     handOpen: false,
+    draggedCard: null,
   };
 }
 
@@ -512,6 +518,14 @@ export function applyAction(state: GameState, slot: PlayerSlot, action: GameActi
     case 'setHandOpen':
       player.handOpen = action.open;
       return;
+    case 'dragCardTo':
+      if (Number.isFinite(action.x) && Number.isFinite(action.y)) {
+        player.draggedCard = { cardId: action.cardId, x: action.x, y: action.y };
+      }
+      return;
+    case 'endCardDrag':
+      player.draggedCard = null;
+      return;
     case 'dropCardOnBoard':
       dropCardOnBoard(player, action.cardId, action.x, action.y);
       return;
@@ -538,6 +552,36 @@ function buildBoardCardViews(
     faceUp: placed.faceUp,
     card: placed.faceUp || owner === forSlot ? placed.card : null,
   }));
+}
+
+/** Whether the opponent is shown the card a player is dragging at all, and
+ *  if so what of it.
+ *
+ *  Only a card out of a hand, or one already lying on the map, is broadcast.
+ *  Dragging inside a draw- or discard-pile preview is private housekeeping
+ *  on that player's own screen — those cards never leave it, so sending one
+ *  flying across the opponent's board would just be noise.
+ *
+ *  The identity rides along only where the face is already public: a board
+ *  card lying face up. One out of a hand, or a face-down board card,
+ *  resolves to null and is drawn as a back, so picking it up reveals
+ *  nothing. */
+function buildDraggedCardView(player: ServerPlayerState): DraggedCardView | null {
+  const dragged = player.draggedCard;
+  if (!dragged) {
+    return null;
+  }
+  const placed = player.boardCards.find((b) => b.card.id === dragged.cardId);
+  const isFromHand = player.hand.some((c) => c.id === dragged.cardId);
+  if (!placed && !isFromHand) {
+    return null;
+  }
+  return {
+    cardId: dragged.cardId,
+    x: dragged.x,
+    y: dragged.y,
+    card: placed?.faceUp ? placed.card : null,
+  };
 }
 
 function opponentSlotOf(slot: PlayerSlot): PlayerSlot {
@@ -567,6 +611,7 @@ export function buildView(state: GameState, forSlot: PlayerSlot): GameStateView 
       aliceCoinBig: me.aliceCoinBig,
       cursor: me.cursor,
       handOpen: me.handOpen,
+      draggedCard: buildDraggedCardView(me),
     },
     opponent: opponent.token
       ? {
@@ -578,6 +623,7 @@ export function buildView(state: GameState, forSlot: PlayerSlot): GameStateView 
           aliceCoinBig: opponent.aliceCoinBig,
           cursor: opponent.cursor,
           handOpen: opponent.handOpen,
+          draggedCard: buildDraggedCardView(opponent),
         }
       : null,
   };

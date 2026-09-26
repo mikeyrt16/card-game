@@ -1,0 +1,19 @@
+.card {
+  position: fixed;
+  /* The same size the card is on their screen. */
+  width: var(--dragged-card-width);
+  aspect-ratio: 250 / 349;
+  transform: translate(-50%, -50%);
+  border-radius: 12px;
+  object-fit: cover;
+  background: #111;
+  box-shadow: 0 24px 48px rgba(0, 0, 0, 0.65);
+  user-select: none;
+  -webkit-user-drag: none;
+  /* A picture of a card in someone else's hand — never a hover or drop
+     target of ours. */
+  pointer-events: none;
+  /* Just under their cursor (95), so the pointer stays drawn on top of the
+     card it's carrying, but above everything on the board. */
+  z-index: 94;
+}

@@ -96,6 +96,7 @@ wss.on('connection', (ws) => {
       // frozen on the other player's screen for the rest of the game.
       state.players[mySlot].cursor = null;
       state.players[mySlot].handOpen = false;
+      state.players[mySlot].draggedCard = null;
       sockets.delete(mySlot);
       broadcastState();
     }

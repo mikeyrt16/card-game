@@ -18,6 +18,14 @@
   cursor: grabbing;
 }
 
+/* Hidden, never unmounted: the drag preview is standing in for this card,
+   but the element itself has to stay in the DOM for the rest of the
+   gesture — a drag source that disappears never fires its own dragend, and
+   the card would be stranded invisible. */
+.dragging {
+  opacity: 0;
+}
+
 .inner {
   position: relative;
   width: 100%;

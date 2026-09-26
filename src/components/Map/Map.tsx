@@ -265,6 +265,31 @@ export function Map({
   // instead of snapping its center to the pointer.
   const grabOffsetRef = useRef<{ x: number; y: number }>({ x: 0, y: 0 });
   const [editingCoin, setEditingCoin] = useState<EditingCoin | null>(null);
+  // Which board card is in hand right now, so it can be hidden while the
+  // drag preview stands in for it. Local to the map: it's purely about what
+  // this screen draws, and it keeps the drag's start and end side by side.
+  const [draggingBoardCardId, setDraggingBoardCardId] = useState<string | null>(null);
+  // Where a card was just put down, drawn straight away instead of waiting
+  // for the server to echo the move back. The drop fires before dragend
+  // unhides the card, so it reappears already in its new place — without
+  // this it would show at the old one for the length of the round trip.
+  const [droppedCard, setDroppedCard] = useState<{ cardId: string; x: number; y: number } | null>(null);
+  // Held until the server's own record of the card actually matches, rather
+  // than merely until the next broadcast: broadcasts arrive constantly
+  // mid-drag (every cursor update echoes back), so "the next one" is
+  // routinely an unrelated message already in flight, and dropping the
+  // optimistic position on it puts the card back at its old spot until the
+  // real echo lands — which is the flicker. A card that's left the board
+  // entirely — onto a pile, say — clears it too.
+  useEffect(() => {
+    if (!droppedCard) {
+      return;
+    }
+    const confirmed = boardCards.find((boardCard) => boardCard.id === droppedCard.cardId);
+    if (!confirmed || (confirmed.x === droppedCard.x && confirmed.y === droppedCard.y)) {
+      setDroppedCard(null);
+    }
+  }, [boardCards, droppedCard]);
 
   // Re-measure the image's natural size whenever it changes (new map) —
   // cleared first so a stale geometry from the previous image can't briefly
@@ -394,6 +419,7 @@ export function Map({
     const centre = draggedCardCentre({ x: e.clientX, y: e.clientY }, draggedCardCentreOffset);
     const point = toImagePercent(centre.x, centre.y);
     if (cardId && point) {
+      setDroppedCard({ cardId, x: point.x, y: point.y });
       onDropCardOnBoard(cardId, point.x, point.y);
     }
   };
@@ -423,7 +449,9 @@ export function Map({
           if (!ownerCharacterId) {
             return null;
           }
-          const view = toViewPercent(boardCard, inverted);
+          // Where we just put it, if the server hasn't caught up yet.
+          const position = droppedCard?.cardId === boardCard.id ? droppedCard : boardCard;
+          const view = toViewPercent(position, inverted);
           const { x: pxX, y: pxY } = imagePercentToContainerPx(view.x, view.y, geometry);
           const backImage = getCardBackImage(ownerCharacterId);
           const frontImage = boardCard.card
@@ -441,6 +469,7 @@ export function Map({
               backImage={backImage}
               frontImage={frontImage}
               canFlip={isMine}
+              isDragging={draggingBoardCardId === boardCard.id}
               onFlip={() => onFlipBoardCard(boardCard.id)}
               // What's dragged is whichever side is showing, so a card kept
               // face down stays face down in the preview too.
@@ -453,7 +482,13 @@ export function Map({
                   centreOffset,
                 )
               }
-              onDragEnd={onBoardCardDragEnd}
+              // Fires many times over; setting the same id again is a no-op,
+              // so this settles after the first one.
+              onDrag={() => setDraggingBoardCardId(boardCard.id)}
+              onDragEnd={() => {
+                setDraggingBoardCardId(null);
+                onBoardCardDragEnd();
+              }}
             />
           );
         })}
