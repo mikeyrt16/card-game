@@ -33,11 +33,6 @@ const specialModules = import.meta.glob('../assets/special/*/*.{png,jpg,jpeg,web
   import: 'default',
 }) as Record<string, string>;
 
-const actionButtonModules = import.meta.glob('../assets/action-buttons/*.{png,jpg,jpeg,webp}', {
-  eager: true,
-  import: 'default',
-}) as Record<string, string>;
-
 function indexByCapture(modules: Record<string, string>, pattern: RegExp): Record<string, string> {
   const index: Record<string, string> = {};
   for (const [path, url] of Object.entries(modules)) {
@@ -62,7 +57,6 @@ const characterCardsByCharacter = indexByCapture(
 const mapsBySlug = indexByCapture(mapModules, /\/maps\/([^/.]+)\.[^./]+$/);
 const coinsByKey = indexByCapture(coinModules, /\/coins\/([^/]+\/[^/.]+)\.[^./]+$/);
 const specialByKey = indexByCapture(specialModules, /\/special\/([^/]+\/[^/.]+)\.[^./]+$/);
-const actionButtonsByName = indexByCapture(actionButtonModules, /\/action-buttons\/([^/.]+)\.[^./]+$/);
 
 export function getCardImage(characterId: string, slug: string): string {
   const url = cardImagesByKey[`${characterId}/${slug}`];
@@ -122,14 +116,6 @@ export function getSpecialImage(characterId: string, name: string): string {
   const url = specialByKey[`${characterId}/${name}`];
   if (!url) {
     throw new Error(`Missing special image for ${characterId}/${name}`);
-  }
-  return url;
-}
-
-export function getActionButtonImage(name: 'single' | 'double'): string {
-  const url = actionButtonsByName[name];
-  if (!url) {
-    throw new Error(`Missing action button image for ${name}`);
   }
   return url;
 }

@@ -1,6 +1,5 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Navigate } from 'react-router-dom';
-import { ActionButtons } from '../components/ActionButtons/ActionButtons';
 import { AliceCoin } from '../components/AliceCoin/AliceCoin';
 import { CardPile } from '../components/CardPile/CardPile';
 import { PileDropZone, type PilePosition } from '../components/PileDropZone/PileDropZone';
@@ -10,7 +9,7 @@ import { InfoButton } from '../components/InfoButton/InfoButton';
 import { CharacterCardDialog } from '../components/CharacterCardDialog/CharacterCardDialog';
 import { GameMenu } from '../components/GameMenu/GameMenu';
 import { Map } from '../components/Map/Map';
-import { ServeArea } from '../components/ServeArea/ServeArea';
+import { OpponentCursor } from '../components/OpponentCursor/OpponentCursor';
 import { toClientCard, type CardData } from '../data/cards';
 import { getCharacter, type Character } from '../data/characters';
 import { MAPS, type MapInfo } from '../data/maps';
@@ -83,10 +82,6 @@ function Game({ state, character, map, send }: GameProps) {
   const [shuffleConfirm, setShuffleConfirm] = useState<'draw' | 'discard' | null>(null);
   // Whose character card is currently being viewed, if any.
   const [viewingCharacterCard, setViewingCharacterCard] = useState<'me' | 'opponent' | null>(null);
-  // Dims the map behind any of the hand/pile fanned-card views, so they
-  // read more clearly against it.
-  const isMapDimmed = isHandOpen || isViewingDiscard || isViewingDraw || isViewingOpponentDiscard;
-
   // A card that's just been dropped into a different pile, hidden from the
   // pile it came from until the server's echo lands. Without this it pops
   // back into the source fan for the length of the round trip: the fan hides
@@ -106,15 +101,9 @@ function Game({ state, character, map, send }: GameProps) {
   const hand = visible(state.me.hand);
   const drawPile = visible(state.me.drawPile);
   const discardPile = visible(state.me.discardPile);
-  const servePile = visible(state.me.servePile);
-  const revealedServe = state.me.revealedServe.map(toClientCard);
-  // A serve mode locks both players' action buttons; only the player who
-  // started it gets the center staging area.
-  const isServing = state.serve?.activator === state.mySlot;
-  const hasRevealedServe = revealedServe.length > 0;
-  // Both center fans live where the draw/discard previews open, so they
-  // step aside rather than overlapping one.
-  const isViewingAPile = isViewingDiscard || isViewingDraw || isViewingOpponentDiscard;
+  // Dims the map behind any of the hand/pile fanned-card views, so they
+  // read more clearly against it.
+  const isMapDimmed = isHandOpen || isViewingDiscard || isViewingDraw || isViewingOpponentDiscard;
 
   const opponent = state.opponent;
   const opponentSlot: PlayerSlot = state.mySlot === 'player1' ? 'player2' : 'player1';
@@ -153,23 +142,39 @@ function Game({ state, character, map, send }: GameProps) {
     }
   }, [opponentDiscardPile.length, isViewingOpponentDiscard]);
 
-  // Escape backs out of whichever serve thing is on screen for me: my own
-  // in-progress serve (staged cards go back to my hand), or the serve my
-  // opponent showed me.
+  // Mirror our own mouse over to the opponent. Coalesced to one send per
+  // animation frame, the same way coin dragging is, so a fast mouse can't
+  // outpace the socket. Reported as a percentage of our viewport, since
+  // their window is very unlikely to be the same size as ours.
+  const cursorFrameRef = useRef<number | null>(null);
+  const pendingCursorRef = useRef<{ x: number; y: number } | null>(null);
   useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key !== 'Escape') {
-        return;
-      }
-      if (isServing) {
-        send({ type: 'cancelServeMode' });
-      } else if (hasRevealedServe) {
-        send({ type: 'clearRevealedServe' });
+    const flush = () => {
+      cursorFrameRef.current = null;
+      const pending = pendingCursorRef.current;
+      if (pending) {
+        pendingCursorRef.current = null;
+        send({ type: 'moveCursor', x: pending.x, y: pending.y });
       }
     };
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [isServing, hasRevealedServe, send]);
+    const handleMouseMove = (e: MouseEvent) => {
+      pendingCursorRef.current = {
+        x: (e.clientX / window.innerWidth) * 100,
+        y: (e.clientY / window.innerHeight) * 100,
+      };
+      if (cursorFrameRef.current === null) {
+        cursorFrameRef.current = requestAnimationFrame(flush);
+      }
+    };
+    window.addEventListener('mousemove', handleMouseMove);
+    return () => {
+      window.removeEventListener('mousemove', handleMouseMove);
+      if (cursorFrameRef.current !== null) {
+        cancelAnimationFrame(cursorFrameRef.current);
+        cursorFrameRef.current = null;
+      }
+    };
+  }, [send]);
 
   const handleDraw = () => send({ type: 'draw' });
   const handleReturnFromDiscard = () => send({ type: 'returnFromDiscard' });
@@ -188,17 +193,6 @@ function Game({ state, character, map, send }: GameProps) {
     setDraggedCard(null);
     setMovingCardId(cardId);
     send({ type: 'dropOnDiscardPile', cardId, position });
-  };
-
-  const handleServeCard = (cardId: string, index: number) => {
-    setIsDragActive(false);
-    setDraggedCard(null);
-    if (servePile.some((c) => c.id === cardId)) {
-      // Already staged — a plain in-fan reorder, applied live via onReorder.
-      return;
-    }
-    setMovingCardId(cardId);
-    send({ type: 'serveCard', cardId, index });
   };
 
   const handleDropOntoHand = (cardId: string, index: number) => {
@@ -237,12 +231,6 @@ function Game({ state, character, map, send }: GameProps) {
         />
       )}
       <GameMenu onReturnToMainMenu={() => send({ type: 'returnToMainMenu' })} />
-      <ActionButtons
-        characterId={character.id}
-        disabled={state.serve !== null}
-        onSingle={() => send({ type: 'activateServeMode', mode: 'single' })}
-        onDouble={() => send({ type: 'activateServeMode', mode: 'double' })}
-      />
       {/* Opponent's board, mirrored upside-down at the top — same
           components as our own piles/hand, just repositioned/read-only. */}
       <PlayerHand cards={opponentHand} variant="opponent" interactive={false} />
@@ -287,9 +275,8 @@ function Game({ state, character, map, send }: GameProps) {
         interactive={!isViewingDiscard && !isViewingDraw && !isViewingOpponentDiscard}
         // Unlike our own discard/draw previews, the opponent's discard
         // preview is read-only with nothing to drag in or out of — no
-        // reason to force the hand open just because it's showing. A serve
-        // in progress also keeps it open: that's where its cards come from.
-        forceOpen={isViewingDiscard || isViewingDraw || isServing}
+        // reason to force the hand open just because it's showing.
+        forceOpen={isViewingDiscard || isViewingDraw}
         onDockOpenChange={setIsHandOpen}
         incomingCard={draggedCard && !hand.some((c) => c.id === draggedCard.id) ? draggedCard : undefined}
         onCardDragStart={(card) => {
@@ -358,31 +345,6 @@ function Game({ state, character, map, send }: GameProps) {
         isDragActive={isDragActive && !isViewingDiscard}
         onDropCard={handleDropOnDiscardPile}
       />
-      {/* My own serve, mid-staging — a live fan, not a stacked pile. Steps
-          aside while a draw/discard preview is open, since those fan out in
-          the same place. */}
-      {isServing && state.serve?.mode === 'single' && !isViewingAPile && (
-        <ServeArea
-          cards={servePile}
-          incomingCard={draggedCard && !servePile.some((c) => c.id === draggedCard.id) ? draggedCard : undefined}
-          isDragActive={isDragActive}
-          onServeCard={handleServeCard}
-          onConfirm={() => send({ type: 'confirmServe' })}
-          onCardDragStart={(card) => {
-            setIsDragActive(true);
-            setDraggedCard(card);
-          }}
-          onCardDragEnd={() => {
-            setIsDragActive(false);
-            setDraggedCard(null);
-          }}
-          onReorder={(reordered) => send({ type: 'reorderServePile', order: reordered.map((card) => card.id) })}
-        />
-      )}
-      {/* What my opponent served me — read-only, and only on my screen. */}
-      {hasRevealedServe && !isViewingAPile && (
-        <PlayerHand cards={revealedServe} variant="preview" interactive={false} hoverOnly />
-      )}
       {isViewingDraw && (
         <div className={styles.pilePreview} onClick={() => setIsViewingDraw(false)}>
           {/* Unlike the discard preview below, shown in natural deck order,
@@ -442,6 +404,7 @@ function Game({ state, character, map, send }: GameProps) {
           />
         </div>
       )}
+      {opponent?.cursor && <OpponentCursor position={opponent.cursor} />}
       {shuffleConfirm && (
         <ConfirmDialog
           message={`Shuffle the ${shuffleConfirm === 'draw' ? 'deck' : 'discard pile'}?`}

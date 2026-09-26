@@ -20,7 +20,7 @@ interface CardPileProps {
 const CARD_WIDTH_PX = 110;
 const MAX_PILE_WIDTH_PX = 1000;
 const BASE_LAYER_OFFSET_PX = 0.5;
-const HOVER_HOLD_MS = 800;
+const HOVER_HOLD_MS = 400;
 
 export function CardPile({
   count,

@@ -1,0 +1,15 @@
+.cursor {
+  position: fixed;
+  width: 50px;
+  height: 50px;
+  /* No centering offset: the image's top-left corner is the hotspot, so it
+     sits exactly on the reported position the way a real cursor would. */
+  display: block;
+  user-select: none;
+  /* It's a picture of someone else's mouse — it must never swallow a click,
+     hover or drag of our own. */
+  pointer-events: none;
+  /* Above every piece of board furniture (the tallest is 65) so it's never
+     lost behind a pile or the hand, but under the modal dialogs at 100. */
+  z-index: 95;
+}

@@ -4,7 +4,8 @@
       "Bash(node ./removed-dropzone-test.mjs)",
       "Bash(file src/assets/action-buttons/*.png)",
       "Bash(node ./serve-test.mjs)",
-      "Bash(node ./serve-test2.mjs)"
+      "Bash(node ./serve-test2.mjs)",
+      "Bash(sort -t: -k3 -n)"
     ]
   }
 }

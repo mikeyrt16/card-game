@@ -13,17 +13,6 @@ export type GamePhase = 'character-select' | 'map-select' | 'playing';
 
 export type CoinType = 'main' | 'minion';
 
-/** The two card-serve modes, one per action button. */
-export type ServeMode = 'single' | 'double';
-
-/** Set while one player has a serve mode running. Shared/public: both
- *  players' action buttons are disabled for as long as it's non-null, and
- *  only `activator` can stage, cancel or confirm it. */
-export interface ServeState {
-  mode: ServeMode;
-  activator: PlayerSlot;
-}
-
 /** Position is percentage coordinates (0-100) relative to the map image's
  *  own rendered box, so it scales correctly regardless of viewport size.
  *  Public/shared — both players always see every coin's real position. */
@@ -48,6 +37,14 @@ export interface CoinState {
 export interface PlayerCoins {
   main: CoinState;
   minions: CoinState[];
+}
+
+/** A player's mouse position as a percentage (0-100) of their *own*
+ *  viewport, so it still lands in the right place on a screen of a
+ *  different size. */
+export interface CursorPosition {
+  x: number;
+  y: number;
 }
 
 /** A single card instance as it travels over the wire: identifies the card
@@ -112,21 +109,10 @@ export type GameAction =
    *  dragging, either player can trigger it, since it's rendered (mirrored)
    *  on both screens. A no-op if that slot isn't currently playing Alice. */
   | { type: 'toggleAliceCoin'; owner: PlayerSlot }
-  /** Starts a serve mode. A no-op if one is already running (whoever's it
-   *  is) — that's what keeps both players' buttons disabled meanwhile. */
-  | { type: 'activateServeMode'; mode: ServeMode }
-  /** Ends the sender's own serve mode, returning anything staged to their
-   *  hand. Only the activator's cancel counts. */
-  | { type: 'cancelServeMode' }
-  /** Stages one card from the sender's hand into their serve pile, at the
-   *  position it was dropped into the fan. */
-  | { type: 'serveCard'; cardId: string; index: number }
-  | { type: 'reorderServePile'; order: string[] }
-  /** Commits the staged cards: they go to the sender's discard pile, the
-   *  opponent gets a copy to look at, and the mode ends. */
-  | { type: 'confirmServe' }
-  /** Dismisses the serve the sender was shown (their own view only). */
-  | { type: 'clearRevealedServe' };
+  /** Reports where the sender's own mouse is, so the other player can see
+   *  it. Sent throttled to one update per animation frame while the mouse
+   *  is moving. */
+  | { type: 'moveCursor'; x: number; y: number };
 
 export type ClientAction = HelloMessage | GameAction;
 
@@ -139,6 +125,9 @@ export interface PlayerView {
   /** Alice's special-component coin state (big vs. small) — meaningless
    *  (stays false) for any other character. See `toggleAliceCoin`. */
   aliceCoinBig: boolean;
+  /** This player's own mouse position, or null until they've moved it (and
+   *  again once they disconnect). Public — each player draws the other's. */
+  cursor: CursorPosition | null;
 }
 
 export interface GameStateView {
@@ -154,21 +143,10 @@ export interface GameStateView {
   /** Fully public/shared — both players always see every coin's real
    *  position and drag state, identically. */
   coins: Record<PlayerSlot, PlayerCoins>;
-  /** Whichever serve mode is currently running, or null. Public, since it
-   *  gates both players' action buttons. */
-  serve: ServeState | null;
   /** The receiving player's own board — hand and the draw pile's actual
    *  contents are only ever sent to their owner, for a deliberate "look
-   *  through your deck" view; the opponent's stay hidden as counts.
-   *  `servePile` is what they've staged mid-serve (never sent to the
-   *  opponent, who only gets to see it once it's confirmed), and
-   *  `revealedServe` is what their opponent last served *them*. */
-  me: PlayerView & {
-    hand: WireCard[];
-    drawPile: WireCard[];
-    servePile: WireCard[];
-    revealedServe: WireCard[];
-  };
+   *  through your deck" view; the opponent's stay hidden as counts. */
+  me: PlayerView & { hand: WireCard[]; drawPile: WireCard[] };
   /** null until the opponent has connected at least once. Hand is hidden,
    *  exposed only as a count. */
   opponent: (PlayerView & { handCount: number }) | null;
