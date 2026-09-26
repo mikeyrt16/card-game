@@ -357,3 +357,55 @@ export const houdini: CardDefinition[] = [
     "image": "vanishing-act"
   },
 ];
+
+
+export const genie: CardDefinition[] = [
+  {
+    "amount": 3,
+    "image": "back-in-the-lamp"
+  },
+  {
+    "amount": 3,
+    "image": "careful-what-you-wish-for"
+  },
+  {
+    "amount": 3,
+    "image": "feint"
+  },
+  {
+    "amount": 2,
+    "image": "i-am-freed"
+  },
+  {
+    "amount": 3,
+    "image": "i-grant-you-death"
+  },
+  {
+    "amount": 2,
+    "image": "imprisoned-wrath"
+  },
+  {
+    "amount": 2,
+    "image": "ive-made-sultans-out-of-less"
+  },
+  {
+    "amount": 2,
+    "image": "prisoners-torment"
+  },
+  {
+    "amount": 2,
+    "image": "this-is-no-parlor-trick"
+  },
+  {
+    "amount": 3,
+    "image": "three-wishes"
+  },
+  {
+    "amount": 3,
+    "image": "wishing-for-more-wishes"
+  },
+  {
+    "amount": 2,
+    "image": "your-wish-is-my-command"
+  },
+];

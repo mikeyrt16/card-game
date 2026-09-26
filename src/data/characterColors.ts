@@ -7,6 +7,9 @@ const CHARACTER_COLORS: Record<string, string> = {
   arthur: '#FF6F5E',
   alice: '#4FC3FF',
   sinbad: '#F7932D',
+  squirrelGirl: '#F7932D',
+  houdini: '#4CC402',
+  genie: '#E641E8',
 };
 const DEFAULT_COLOR = '#FFD54A';
 
