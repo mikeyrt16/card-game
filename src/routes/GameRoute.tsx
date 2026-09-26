@@ -104,6 +104,10 @@ function Game({ state, character, map, send }: GameProps) {
   // Dims the map behind any of the hand/pile fanned-card views, so they
   // read more clearly against it.
   const isMapDimmed = isHandOpen || isViewingDiscard || isViewingDraw || isViewingOpponentDiscard;
+  // The two players sit across the board from each other: player1 always
+  // gets the map the right way up, player2 always the 180°-rotated copy.
+  // Fixed by slot, the same way the coins pick their starting sides.
+  const viewsInverseMap = state.mySlot === 'player2';
 
   const opponent = state.opponent;
   const opponentSlot: PlayerSlot = state.mySlot === 'player1' ? 'player2' : 'player1';
@@ -141,6 +145,12 @@ function Game({ state, character, map, send }: GameProps) {
       setIsViewingOpponentDiscard(false);
     }
   }, [opponentDiscardPile.length, isViewingOpponentDiscard]);
+
+  // Let the opponent's mirrored copy of our hand move in step with ours.
+  // Hover-driven, so this changes far too rarely to need any throttling.
+  useEffect(() => {
+    send({ type: 'setHandOpen', open: isHandOpen });
+  }, [isHandOpen, send]);
 
   // Mirror our own mouse over to the opponent. Coalesced to one send per
   // animation frame, the same way coin dragging is, so a fast mouse can't
@@ -211,8 +221,9 @@ function Game({ state, character, map, send }: GameProps) {
     <div className={styles.board}>
       {map && (
         <Map
-          image={map.image}
+          image={viewsInverseMap ? map.inverseImage : map.image}
           dimmed={isMapDimmed}
+          inverted={viewsInverseMap}
           coins={state.coins}
           mySlot={state.mySlot}
           characterIds={characterIds}
@@ -233,7 +244,15 @@ function Game({ state, character, map, send }: GameProps) {
       <GameMenu onReturnToMainMenu={() => send({ type: 'returnToMainMenu' })} />
       {/* Opponent's board, mirrored upside-down at the top — same
           components as our own piles/hand, just repositioned/read-only. */}
-      <PlayerHand cards={opponentHand} variant="opponent" interactive={false} />
+      {/* Still just card backs — the server never sends us their actual
+          cards, only the count — but it rises and falls with their own
+          hand so we can see when they're looking through it. */}
+      <PlayerHand
+        cards={opponentHand}
+        variant="opponent"
+        interactive={false}
+        forceOpen={opponent?.handOpen ?? false}
+      />
       <CardPile
         count={opponent?.drawPileCount ?? 0}
         image={opponentCardBack}

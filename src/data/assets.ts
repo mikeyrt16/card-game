@@ -90,15 +90,32 @@ export function getCharacterCardImage(characterId: string): string {
   return url;
 }
 
-/** Every map's slug (its filename, minus extension), in a stable sorted order. */
+/** Marks a map file as the 180°-rotated copy of the map of the same name. */
+const INVERSE_MAP_SUFFIX = '-inverse';
+
+/** Every map's slug (its filename, minus extension), in a stable sorted
+ *  order. The `-inverse` files are the same maps seen from the other side
+ *  of the board rather than maps in their own right, so they're left out —
+ *  otherwise each map would appear twice in the picker. */
 export function getMapIds(): string[] {
-  return Object.keys(mapsBySlug).sort();
+  return Object.keys(mapsBySlug)
+    .filter((slug) => !slug.endsWith(INVERSE_MAP_SUFFIX))
+    .sort();
 }
 
 export function getMapImage(mapId: string): string {
   const url = mapsBySlug[mapId];
   if (!url) {
     throw new Error(`Missing map image for ${mapId}`);
+  }
+  return url;
+}
+
+/** The same map rotated 180°, for the player sitting on the far side. */
+export function getInverseMapImage(mapId: string): string {
+  const url = mapsBySlug[`${mapId}${INVERSE_MAP_SUFFIX}`];
+  if (!url) {
+    throw new Error(`Missing inverse map image for ${mapId}`);
   }
   return url;
 }

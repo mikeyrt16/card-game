@@ -171,9 +171,23 @@ function containerPxToImagePercent(
   return { x: Math.max(0, Math.min(100, xPercent)), y: Math.max(0, Math.min(100, yPercent)) };
 }
 
+/** Coin positions are stored in one shared frame of reference that both
+ *  players' servers and clients agree on — the *un-rotated* map. A player
+ *  looking at the 180°-rotated art is seeing that same board from the far
+ *  side, so a coin stored at "70% across, 20% down" sits, from where they
+ *  are, 30% across and 80% down. Flipping both axes converts between the
+ *  two, and since it's its own inverse the one function serves both
+ *  directions: stored -> screen when rendering, screen -> stored when a
+ *  drag reports a new position back. */
+function toViewPercent(point: { x: number; y: number }, inverted: boolean): { x: number; y: number } {
+  return inverted ? { x: 100 - point.x, y: 100 - point.y } : point;
+}
+
 interface MapProps {
   image: string;
   dimmed: boolean;
+  /** True for the player shown the inverse (180°-rotated) map art. */
+  inverted: boolean;
   coins: Record<PlayerSlot, PlayerCoins>;
   mySlot: PlayerSlot;
   /** Which character each slot picked — null for a slot that hasn't (in
@@ -191,6 +205,7 @@ interface MapProps {
 export function Map({
   image,
   dimmed,
+  inverted,
   coins,
   mySlot,
   characterIds,
@@ -255,12 +270,15 @@ export function Map({
       ? computeCoverGeometry(containerSize, imageSize)
       : null;
 
+  /** Where the pointer is, in the shared (un-rotated) coordinates every
+   *  coin position is stored in — so drags from either side of the board
+   *  agree on where a coin ended up. */
   const toImagePercent = (clientX: number, clientY: number): { x: number; y: number } | null => {
     const rect = containerRef.current?.getBoundingClientRect();
     if (!rect || !geometry) {
       return null;
     }
-    return containerPxToImagePercent(clientX - rect.left, clientY - rect.top, geometry);
+    return toViewPercent(containerPxToImagePercent(clientX - rect.left, clientY - rect.top, geometry), inverted);
   };
 
   const flushPendingMove = () => {
@@ -364,7 +382,10 @@ export function Map({
 
           return coinEntries.map(({ coinType, minionIndex, coin }) => {
             const position = sameCoin(localDrag, owner, coinType, minionIndex) ? localDrag : coin;
-            const { x: pxX, y: pxY } = imagePercentToContainerPx(position.x, position.y, geometry);
+            // Stored coordinates are shared; turn them into this viewer's
+            // own orientation before placing anything on screen.
+            const view = toViewPercent(position, inverted);
+            const { x: pxX, y: pxY } = imagePercentToContainerPx(view.x, view.y, geometry);
             const isDead = coin.health <= 0;
             const isGlowing = Boolean(coin.draggedBy);
             const isGrabbable = !isDead && (!coin.draggedBy || coin.draggedBy === mySlot);

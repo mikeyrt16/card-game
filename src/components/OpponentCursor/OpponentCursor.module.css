@@ -1,7 +1,7 @@
 .cursor {
   position: fixed;
-  width: 50px;
-  height: 50px;
+  width: 40px;
+  height: 40px;
   /* No centering offset: the image's top-left corner is the hotspot, so it
      sits exactly on the reported position the way a real cursor would. */
   display: block;

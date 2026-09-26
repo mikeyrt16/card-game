@@ -92,9 +92,10 @@ wss.on('connection', (ws) => {
   ws.on('close', () => {
     if (mySlot && sockets.get(mySlot) === ws) {
       state.players[mySlot].connected = false;
-      // Otherwise their last-known cursor would sit frozen on the other
-      // player's screen for the rest of the game.
+      // Otherwise their last-known cursor and hand position would sit
+      // frozen on the other player's screen for the rest of the game.
       state.players[mySlot].cursor = null;
+      state.players[mySlot].handOpen = false;
       sockets.delete(mySlot);
       broadcastState();
     }

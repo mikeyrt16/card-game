@@ -27,6 +27,10 @@ interface ServerPlayerState {
   /** Last reported mouse position, for the other player to draw. Cleared on
    *  disconnect so a ghost cursor can't linger. */
   cursor: CursorPosition | null;
+  /** Whether this player has their hand dock raised, mirrored onto the
+   *  other player's screen. Also cleared on disconnect, so it can't stick
+   *  open. */
+  handOpen: boolean;
 }
 
 export interface GameState {
@@ -46,6 +50,7 @@ export function createEmptyPlayer(): ServerPlayerState {
     hand: [],
     aliceCoinBig: false,
     cursor: null,
+    handOpen: false,
   };
 }
 
@@ -445,6 +450,9 @@ export function applyAction(state: GameState, slot: PlayerSlot, action: GameActi
     case 'moveCursor':
       moveCursor(player, action.x, action.y);
       return;
+    case 'setHandOpen':
+      player.handOpen = action.open;
+      return;
   }
 }
 
@@ -470,6 +478,7 @@ export function buildView(state: GameState, forSlot: PlayerSlot): GameStateView 
       hand: me.hand,
       aliceCoinBig: me.aliceCoinBig,
       cursor: me.cursor,
+      handOpen: me.handOpen,
     },
     opponent: opponent.token
       ? {
@@ -480,6 +489,7 @@ export function buildView(state: GameState, forSlot: PlayerSlot): GameStateView 
           handCount: opponent.hand.length,
           aliceCoinBig: opponent.aliceCoinBig,
           cursor: opponent.cursor,
+          handOpen: opponent.handOpen,
         }
       : null,
   };

@@ -175,23 +175,33 @@ export function PlayerHand({
       ? Math.min(BASE_CARD_SPACING_PX, (MAX_HAND_WIDTH_PX - CARD_WIDTH_PX) / (cards.length - 1))
       : BASE_CARD_SPACING_PX;
 
-  const handVariantClass =
-    variant === 'preview' ? styles.handPreview : variant === 'opponent' ? styles.handOpponent : '';
-  const handClassName = `${styles.hand} ${handVariantClass}`.trim();
   const canReceiveDrag = Boolean(effectiveDraggedCardId) || Boolean(incomingCard);
 
   const isDockedHand = variant === 'hand';
-  // Also stays raised mid-drag — a card of ours being dragged, or one being
-  // dragged in from elsewhere — so the fan doesn't sink away out from under
-  // an in-progress drag just because native drag-and-drop can make regular
-  // mouseenter/mouseleave fire inconsistently while it's active.
-  const isDockOpen =
-    !isDockedHand ||
-    forceOpen ||
-    isHoveringDockZone ||
-    isHoveringHandArea ||
-    Boolean(effectiveDraggedCardId) ||
-    isIncomingHovered;
+  /** The opponent's fan is a mirror of the dock on *their* screen. Nothing
+   *  here can hover it, so its raised/lowered state comes in from outside
+   *  (via forceOpen) rather than from any local pointer state. */
+  const isMirroredDock = variant === 'opponent';
+  // Our own dock also stays raised mid-drag — a card of ours being dragged,
+  // or one being dragged in from elsewhere — so the fan doesn't sink away
+  // out from under an in-progress drag just because native drag-and-drop
+  // can make regular mouseenter/mouseleave fire inconsistently while it's
+  // active.
+  const isDockOpen = isDockedHand
+    ? forceOpen ||
+      isHoveringDockZone ||
+      isHoveringHandArea ||
+      Boolean(effectiveDraggedCardId) ||
+      isIncomingHovered
+    : !isMirroredDock || forceOpen;
+
+  const handVariantClass =
+    variant === 'preview'
+      ? styles.handPreview
+      : isMirroredDock
+        ? `${styles.handOpponent}${isDockOpen ? ` ${styles.handOpponentOpen}` : ''}`
+        : '';
+  const handClassName = `${styles.hand} ${handVariantClass}`.trim();
 
   useEffect(() => {
     if (isDockedHand) {

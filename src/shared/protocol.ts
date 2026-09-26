@@ -112,7 +112,10 @@ export type GameAction =
   /** Reports where the sender's own mouse is, so the other player can see
    *  it. Sent throttled to one update per animation frame while the mouse
    *  is moving. */
-  | { type: 'moveCursor'; x: number; y: number };
+  | { type: 'moveCursor'; x: number; y: number }
+  /** Reports whether the sender has their own hand dock raised, so the
+   *  other player's mirrored copy of it can move in step. */
+  | { type: 'setHandOpen'; open: boolean };
 
 export type ClientAction = HelloMessage | GameAction;
 
@@ -128,6 +131,10 @@ export interface PlayerView {
   /** This player's own mouse position, or null until they've moved it (and
    *  again once they disconnect). Public — each player draws the other's. */
   cursor: CursorPosition | null;
+  /** Whether this player has their hand dock raised. Public, so the other
+   *  player's mirrored view of that hand can match it (still face down —
+   *  only the count is ever sent, never the cards). */
+  handOpen: boolean;
 }
 
 export interface GameStateView {

@@ -72,11 +72,23 @@
   min-height: 0;
   /* Rotating the whole fan (not just its cards) flips both the arc and each
      card in one move, so it reads as "the same fan, upside down" rather
-     than needing separately mirrored position/rotation math. */
+     than needing separately mirrored position/rotation math. This resting
+     spot is the mirror of our own dock's *lowered* state — only a sliver of
+     card backs showing. */
   transform: rotate(180deg);
   /* Read-only — never intercepts drags/clicks meant for the board beneath it. */
   pointer-events: none;
   z-index: 10;
+}
+
+/* Set while the opponent has their own hand raised, so we see it move in
+   step with theirs. Travels half the 150px our own dock does — their fan
+   only needs to read as "they're looking at their hand", not to be legible
+   from our side. Inside the rotated frame, -Y is down the screen; repeating
+   the rotation is unavoidable, since this replaces .handOpponent's
+   transform rather than adding to it. */
+.handOpponentOpen {
+  transform: rotate(180deg) translateY(-75px);
 }
 
 .slot,
