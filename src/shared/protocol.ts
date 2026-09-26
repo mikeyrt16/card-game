@@ -144,7 +144,14 @@ export type GameAction =
    *  other player can watch it move. Throttled with the cursor it travels
    *  with, and sent from the same pointer events, so the two stay in step. */
   | { type: 'dragCardTo'; cardId: string; x: number; y: number }
-  | { type: 'endCardDrag' };
+  | { type: 'endCardDrag' }
+  /** Deliberately reveals the sender's whole hand to their opponent, who
+   *  gets a read-only look at it. A snapshot taken at this moment, not a
+   *  live feed — drawing a card afterwards doesn't add it to what they've
+   *  already been shown. */
+  | { type: 'showHandToOpponent' }
+  /** Dismisses the hand the sender was shown (their own view only). */
+  | { type: 'clearRevealedHand' };
 
 export type ClientAction = HelloMessage | GameAction;
 
@@ -205,7 +212,11 @@ export interface GameStateView {
   /** The receiving player's own board — hand and the draw pile's actual
    *  contents are only ever sent to their owner, for a deliberate "look
    *  through your deck" view; the opponent's stay hidden as counts. */
-  me: PlayerView & { hand: WireCard[]; drawPile: WireCard[] };
+  /** `revealedHand` is the opponent's hand as they last chose to show it —
+   *  empty unless they did. Lives here, on the receiving player's own
+   *  branch, because it's the one case where someone else's hand is meant
+   *  to be readable, and only by them. */
+  me: PlayerView & { hand: WireCard[]; drawPile: WireCard[]; revealedHand: WireCard[] };
   /** null until the opponent has connected at least once. Hand is hidden,
    *  exposed only as a count. */
   opponent: (PlayerView & { handCount: number }) | null;

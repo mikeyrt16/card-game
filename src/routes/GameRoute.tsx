@@ -14,6 +14,7 @@ import { Map } from '../components/Map/Map';
 import { OpponentCursor } from '../components/OpponentCursor/OpponentCursor';
 import { OpponentDraggedCard } from '../components/OpponentDraggedCard/OpponentDraggedCard';
 import { toClientCard, type CardData } from '../data/cards';
+import { characterGlowRgb } from '../data/characterColors';
 import { getCharacter, type Character } from '../data/characters';
 import { MAPS, type MapInfo } from '../data/maps';
 import { useGameConnection } from '../net/GameConnectionProvider';
@@ -88,6 +89,9 @@ function Game({ state, character, map, send }: GameProps) {
   const [isHandOpen, setIsHandOpen] = useState(false);
   // Which pile's shuffle is pending confirmation, if any.
   const [shuffleConfirm, setShuffleConfirm] = useState<'draw' | 'discard' | null>(null);
+  // Offering our hand up to the opponent is irreversible once done, so it
+  // goes through a confirmation the way shuffling does.
+  const [showHandConfirm, setShowHandConfirm] = useState(false);
   // Whose character card is currently being viewed, if any.
   const [viewingCharacterCard, setViewingCharacterCard] = useState<'me' | 'opponent' | null>(null);
   // A card that's just been dropped into a different pile, hidden from the
@@ -109,9 +113,12 @@ function Game({ state, character, map, send }: GameProps) {
   const hand = visible(state.me.hand);
   const drawPile = visible(state.me.drawPile);
   const discardPile = visible(state.me.discardPile);
+  // The opponent's hand, if they've chosen to show it to us.
+  const revealedHand = state.me.revealedHand.map(toClientCard);
   // Dims the map behind any of the hand/pile fanned-card views, so they
   // read more clearly against it.
-  const isMapDimmed = isHandOpen || isViewingDiscard || isViewingDraw || isViewingOpponentDiscard;
+  const isMapDimmed =
+    isHandOpen || isViewingDiscard || isViewingDraw || isViewingOpponentDiscard || revealedHand.length > 0;
   // The two players sit across the board from each other: player1 always
   // gets the map the right way up, player2 always the 180°-rotated copy.
   // Fixed by slot, the same way the coins pick their starting sides.
@@ -397,6 +404,8 @@ function Game({ state, character, map, send }: GameProps) {
         }}
         onReorder={(reordered) => send({ type: 'reorderHand', order: reordered.map((card) => card.id) })}
         onExternalDrop={handleDropOntoHand}
+        onShowHand={() => setShowHandConfirm(true)}
+        showHandGlowRgb={characterGlowRgb(character.id)}
       />
       {!isViewingDraw && (
         <CardPile
@@ -506,6 +515,15 @@ function Game({ state, character, map, send }: GameProps) {
           />
         </div>
       )}
+      {/* A hand the opponent chose to show us. Opens on arrival rather than
+          waiting to be found, and dismissing it tells the server, so they
+          can offer it again later. Read-only in exactly the same way as
+          their discard pile above: look and zoom, nothing else. */}
+      {revealedHand.length > 0 && (
+        <div className={styles.pilePreview} onClick={() => send({ type: 'clearRevealedHand' })}>
+          <PlayerHand cards={revealedHand} variant="preview" interactive={false} hoverOnly />
+        </div>
+      )}
       {/* Drawn under their cursor, so the two read as one gesture. A card
           the server didn't identify for us is one we aren't allowed to
           see, so it wears their card back. */}
@@ -530,6 +548,17 @@ function Game({ state, character, map, send }: GameProps) {
             setShuffleConfirm(null);
           }}
           onCancel={() => setShuffleConfirm(null)}
+        />
+      )}
+      {showHandConfirm && (
+        <ConfirmDialog
+          message="Are you sure you want to show your hand to the opponent?"
+          confirmLabel="Show hand"
+          onConfirm={() => {
+            send({ type: 'showHandToOpponent' });
+            setShowHandConfirm(false);
+          }}
+          onCancel={() => setShowHandConfirm(false)}
         />
       )}
       {viewingCharacterCard && (

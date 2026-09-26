@@ -35,6 +35,10 @@ interface ServerPlayerState {
   discardPile: WireCard[];
   hand: WireCard[];
   boardCards: ServerBoardCard[];
+  /** The opponent's hand as they last chose to reveal it — a snapshot, not
+   *  a live view. Stored on the player who gets to *look*, so it can only
+   *  ever be sent to them. */
+  revealedHand: WireCard[];
   /** Alice's special-component coin — see `toggleAliceCoin`. Unused (stays
    *  false) for every other character. */
   aliceCoinBig: boolean;
@@ -67,6 +71,7 @@ export function createEmptyPlayer(): ServerPlayerState {
     discardPile: [],
     hand: [],
     boardCards: [],
+    revealedHand: [],
     aliceCoinBig: false,
     cursor: null,
     handOpen: false,
@@ -202,6 +207,7 @@ function selectCharacter(state: GameState, slot: PlayerSlot, characterId: string
   player.drawPile = deck.slice(INITIAL_HAND_SIZE);
   player.discardPile = [];
   player.boardCards = [];
+  player.revealedHand = [];
   // Always starts small, whether newly picking Alice or switching away from
   // (and potentially back to) her.
   player.aliceCoinBig = false;
@@ -298,6 +304,7 @@ function resetPlayerToCharacterSelect(player: ServerPlayerState): void {
   player.discardPile = [];
   player.hand = [];
   player.boardCards = [];
+  player.revealedHand = [];
   player.aliceCoinBig = false;
   // token/connected are identity, not game progress — left untouched.
 }
@@ -526,6 +533,14 @@ export function applyAction(state: GameState, slot: PlayerSlot, action: GameActi
     case 'endCardDrag':
       player.draggedCard = null;
       return;
+    case 'showHandToOpponent':
+      // A snapshot handed to the opponent, not a live window: what they see
+      // is the hand as it was when it was offered.
+      state.players[opponentSlotOf(slot)].revealedHand = [...player.hand];
+      return;
+    case 'clearRevealedHand':
+      player.revealedHand = [];
+      return;
     case 'dropCardOnBoard':
       dropCardOnBoard(player, action.cardId, action.x, action.y);
       return;
@@ -608,6 +623,7 @@ export function buildView(state: GameState, forSlot: PlayerSlot): GameStateView 
       drawPile: me.drawPile,
       discardPile: me.discardPile,
       hand: me.hand,
+      revealedHand: me.revealedHand,
       aliceCoinBig: me.aliceCoinBig,
       cursor: me.cursor,
       handOpen: me.handOpen,

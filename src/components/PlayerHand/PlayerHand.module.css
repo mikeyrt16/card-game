@@ -128,6 +128,47 @@
   box-shadow: 0 18px 30px rgba(0, 0, 0, 0.6);
 }
 
+/* Anchored to the same line the cards sit on, then pushed out past the
+   fan's right edge by an inline transform — only the component knows how
+   wide the fan currently is. Being inside .hand, it raises and lowers with
+   the dock for free. */
+.showHandButton {
+  position: absolute;
+  /* Sat on the cards' own baseline (32px) at first, which read as slightly
+     buried against the fan — lifted clear of it. */
+  bottom: 70px;
+  left: 50%;
+  width: 50px;
+  height: 50px;
+  padding: 0;
+  border: none;
+  border-radius: 50%;
+  background: rgba(10, 10, 10, 0.85);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 3px 10px rgba(0, 0, 0, 0.6);
+  transition: box-shadow 0.15s ease;
+  z-index: 1;
+}
+
+/* --glow-rgb is set inline, from the same per-character palette the coins
+   and their particles use. */
+.showHandButton:hover {
+  box-shadow: 0 0 0 3px rgb(var(--glow-rgb) / 60%), 0 0 22px 8px rgb(var(--glow-rgb) / 65%);
+}
+
+.showHandIcon {
+  width: 30px;
+  height: 30px;
+  object-fit: contain;
+  display: block;
+  pointer-events: none;
+  user-select: none;
+  -webkit-user-drag: none;
+}
+
 .cardImage {
   width: 100%;
   height: 100%;

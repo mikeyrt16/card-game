@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState, type CSSProperties, type DragEvent } from 'react';
+import eyeImage from '../../assets/eye.png';
 import type { CardData } from '../../data/cards';
 import { hideNativeDragImage } from '../DragPreview/hideNativeDragImage';
 import styles from './PlayerHand.module.css';
@@ -35,6 +36,16 @@ interface PlayerHandProps {
    *  this hand (e.g. dragged in from a discard-pile preview). `index` is
    *  where in `cards` it was hovered when dropped. */
   onExternalDrop?: (cardId: string, index: number) => void;
+  /** Only meaningful for variant 'hand'. When given, an eye button sits
+   *  just past the right-hand edge of the fan — offering the whole hand up
+   *  for the opponent to look at. Rendered here rather than by the caller
+   *  because only this component knows where the fan's edge actually is,
+   *  and it rides along with the dock as it raises and lowers. Shown only
+   *  while the dock is open and the hand isn't empty. */
+  onShowHand?: () => void;
+  /** Space-separated "R G B" for the eye button's hover glow, so it matches
+   *  whatever colour the rest of this player's pieces glow. */
+  showHandGlowRgb?: string;
 }
 
 function reorder(cards: CardData[], fromId: string, toId: string): CardData[] {
@@ -67,6 +78,8 @@ export function PlayerHand({
   onCardDragEnd,
   onReorder,
   onExternalDrop,
+  onShowHand,
+  showHandGlowRgb,
 }: PlayerHandProps) {
   // Hover/focus-zoom and dragging are independently controllable —
   // interactive covers both, hoverOnly adds just the former on top of an
@@ -406,6 +419,25 @@ export function PlayerHand({
             </div>
           );
         })}
+        {/* Sits just past the fan's right-hand edge, and rides the dock up
+            and down with it. Hidden on an empty hand, since there'd be
+            nothing to show. */}
+        {onShowHand && isDockedHand && isDockOpen && displayCards.length > 0 && (
+          <button
+            type="button"
+            className={styles.showHandButton}
+            style={
+              {
+                transform: `translateX(${((displayCards.length - 1) / 2) * cardSpacing + CARD_WIDTH_PX / 2 + 40}px)`,
+                '--glow-rgb': showHandGlowRgb,
+              } as CSSProperties
+            }
+            onClick={onShowHand}
+            aria-label="Show your hand to your opponent"
+          >
+            <img src={eyeImage} alt="" className={styles.showHandIcon} draggable={false} />
+          </button>
+        )}
       </div>
       {isDockedHand && (
         // A separate, un-transformed sibling (not a child of the dock above)
