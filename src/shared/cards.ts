@@ -247,3 +247,113 @@ export const alice: CardDefinition[] = [
     "image": "eat-me"
   }
 ];
+
+export const squirrelGirl: CardDefinition[] = [
+  {
+    "amount": 3,
+    "image": "bite-of-steel"
+  },
+  {
+    "amount": 3,
+    "image": "call-of-the-mild"
+  },
+  {
+    "amount": 2,
+    "image": "dash"
+  },
+  {
+    "amount": 2,
+    "image": "eat-nuts"
+  },
+  {
+    "amount": 2,
+    "image": "feint"
+  },
+  {
+    "amount": 2,
+    "image": "fuzzball-special"
+  },
+  {
+    "amount": 3,
+    "image": "get-em-tippy-toe"
+  },
+  {
+    "amount": 2,
+    "image": "horde-of-squirrels"
+  },
+  {
+    "amount": 3,
+    "image": "kick-butts"
+  },
+  {
+    "amount": 1,
+    "image": "nutwork-of-spies"
+  },
+  {
+    "amount": 3,
+    "image": "squirgility"
+  },
+  {
+    "amount": 2,
+    "image": "squirmish"
+  },
+  {
+    "amount": 2,
+    "image": "unbeatable-squirrel-girl"
+  },
+];
+
+export const houdini: CardDefinition[] = [
+  {
+    "amount": 1,
+    "image": "a-magician-never-reveals-his-secrets"
+  },
+  {
+    "amount": 2,
+    "image": "all-part-of-the-show"
+  },
+  {
+    "amount": 2,
+    "image": "an-illusion-of-my-own-design"
+  },
+  {
+    "amount": 2,
+    "image": "and-the-beautiful-bess"
+  },
+  {
+    "amount": 4,
+    "image": "flourish"
+  },
+  {
+    "amount": 2,
+    "image": "for-my-next-trick"
+  },
+  {
+    "amount": 3,
+    "image": "grand-escape"
+  },
+  {
+    "amount": 3,
+    "image": "misdirection"
+  },
+  {
+    "amount": 2,
+    "image": "set-the-stage"
+  },
+  {
+    "amount": 2,
+    "image": "sleight-of-hand"
+  },
+  {
+    "amount": 2,
+    "image": "smoke-and-mirrors"
+  },
+  {
+    "amount": 2,
+    "image": "the-big-reveal"
+  },
+  {
+    "amount": 3,
+    "image": "vanishing-act"
+  },
+];
