@@ -60,9 +60,17 @@ export interface WireCard {
   slug: string;
 }
 
+/** How many patches of darkness — "shadow tokens", as Spike's control calls
+ *  them — Spike gets for the whole game. The server enforces it; the client
+ *  reads it to count down the button's label and hide it once they're spent.
+ *  Since nothing removes a placed patch, `darkness.length` is exactly how
+ *  many have been used. */
+export const SHADOW_TOKEN_LIMIT = 3;
+
 /** A patch of darkness Spike has put on the map. Positioned in the same
  *  shared percentage-of-the-map frame the coins use, so both players agree
- *  on where it is however their screen is sized or oriented. */
+ *  on where it is however their screen is sized or oriented. Permanent once
+ *  placed — it can be slid about, but there's no taking it back. */
 export interface DarknessView {
   id: string;
   x: number;
@@ -170,12 +178,12 @@ export type GameAction =
   /** Dismisses the hand the sender was shown (their own view only). */
   | { type: 'clearRevealedHand' }
   /** Drops a fresh patch of darkness on the middle of the map. Spike's
-   *  own, so a no-op from anyone else. */
+   *  own, so a no-op from anyone else — and a no-op once he's placed all
+   *  `SHADOW_TOKEN_LIMIT` of them. */
   | { type: 'addDarkness' }
   /** Darkness is shared furniture once placed: like a coin, either player
-   *  can slide it about or clear it away. */
-  | { type: 'moveDarkness'; id: string; x: number; y: number }
-  | { type: 'removeDarkness'; id: string };
+   *  can slide it about. */
+  | { type: 'moveDarkness'; id: string; x: number; y: number };
 
 export type ClientAction = HelloMessage | GameAction;
 

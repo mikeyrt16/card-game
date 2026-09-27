@@ -19,6 +19,7 @@ import { characterGlowRgb } from '../data/characterColors';
 import { getCharacter, type Character } from '../data/characters';
 import { MAPS, type MapInfo } from '../data/maps';
 import { useGameConnection } from '../net/GameConnectionProvider';
+import { SHADOW_TOKEN_LIMIT } from '../shared/protocol';
 import type { GameAction, GameStateView, PlayerSlot, WireCard } from '../shared/protocol';
 import styles from './GameRoute.module.css';
 
@@ -332,7 +333,6 @@ function Game({ state, character, map, send }: GameProps) {
           boardCards={boardCards}
           darkness={state.darkness}
           onMoveDarkness={(id, x, y) => send({ type: 'moveDarkness', id, x, y })}
-          onRemoveDarkness={(id) => send({ type: 'removeDarkness', id })}
           onDropCardOnBoard={handleDropCardOnBoard}
           onFlipBoardCard={(cardId) => send({ type: 'flipBoardCard', cardId })}
           draggedCardCentreOffset={draggedCardCentreOffset}
@@ -438,9 +438,14 @@ function Game({ state, character, map, send }: GameProps) {
         />
       )}
       {/* A control rather than a piece, so unlike Alice's coin it's only
-          drawn for Spike himself — what it places is the shared part. */}
-      {character.id === 'spike' && (
-        <SpikeDarknessButton onAddDarkness={() => send({ type: 'addDarkness' })} />
+          drawn for Spike himself — what it places is the shared part. Goes
+          away entirely once all three are down: nothing removes a placed
+          token, so the board's own count is how many he's spent. */}
+      {character.id === 'spike' && state.darkness.length < SHADOW_TOKEN_LIMIT && (
+        <SpikeDarknessButton
+          remaining={SHADOW_TOKEN_LIMIT - state.darkness.length}
+          onAddDarkness={() => send({ type: 'addDarkness' })}
+        />
       )}
       {!isViewingDiscard && (
         <CardPile

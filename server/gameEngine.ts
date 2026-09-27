@@ -1,4 +1,5 @@
 import { getCharacterDef } from '../src/shared/characters';
+import { SHADOW_TOKEN_LIMIT } from '../src/shared/protocol';
 import type {
   BoardCardView,
   CoinState,
@@ -583,9 +584,11 @@ export function applyAction(state: GameState, slot: PlayerSlot, action: GameActi
       player.revealedHand = [];
       return;
     case 'addDarkness':
-      // Spike's to place. Lands mid-map, to be dragged wherever it's
-      // wanted from there.
-      if (player.characterId === 'spike') {
+      // Spike's to place, and only SHADOW_TOKEN_LIMIT of them for the whole
+      // game. Nothing removes a placed patch, so the array's own length is
+      // the count of what he's spent. Lands mid-map, to be dragged wherever
+      // it's wanted from there.
+      if (player.characterId === 'spike' && state.darkness.length < SHADOW_TOKEN_LIMIT) {
         state.darkness = [...state.darkness, { id: crypto.randomUUID(), x: 50, y: 50 }];
       }
       return;
@@ -600,9 +603,6 @@ export function applyAction(state: GameState, slot: PlayerSlot, action: GameActi
       }
       return;
     }
-    case 'removeDarkness':
-      state.darkness = state.darkness.filter((d) => d.id !== action.id);
-      return;
     case 'dropCardOnBoard':
       dropCardOnBoard(player, action.cardId, action.x, action.y);
       return;

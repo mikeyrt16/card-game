@@ -11,13 +11,13 @@ interface DarknessProps {
   onPointerMove: (e: ReactPointerEvent<HTMLDivElement>) => void;
   onPointerUp: (e: ReactPointerEvent<HTMLDivElement>) => void;
   onPointerCancel: (e: ReactPointerEvent<HTMLDivElement>) => void;
-  onRemove: () => void;
 }
 
 /** A patch of Spike's darkness sitting on the map. Slid about with pointer
- *  events, exactly as the coins are, and double-clicked away. Either player
- *  can do both — once placed it's shared furniture. */
-export function Darkness({ left, top, onPointerDown, onPointerMove, onPointerUp, onPointerCancel, onRemove }: DarknessProps) {
+ *  events, exactly as the coins are, by either player — once placed it's
+ *  shared furniture. There's no removing it: Spike gets a fixed few (see
+ *  SHADOW_TOKEN_LIMIT) and placing one commits it. */
+export function Darkness({ left, top, onPointerDown, onPointerMove, onPointerUp, onPointerCancel }: DarknessProps) {
   return (
     <div
       className={styles.darkness}
@@ -26,9 +26,8 @@ export function Darkness({ left, top, onPointerDown, onPointerMove, onPointerUp,
       onPointerMove={onPointerMove}
       onPointerUp={onPointerUp}
       onPointerCancel={onPointerCancel}
-      onDoubleClick={onRemove}
       role="img"
-      aria-label="Patch of darkness — double-click to clear"
+      aria-label="Shadow token"
     >
       <img src={smokeImage} alt="" className={styles.image} draggable={false} />
     </div>

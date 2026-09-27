@@ -124,10 +124,9 @@ interface MapProps {
   coins: Record<PlayerSlot, PlayerCoins>;
   /** Cards lying on the map, both players'. */
   boardCards: BoardCardView[];
-  /** Arthur's patches of darkness. */
+  /** Spike's shadow tokens. */
   darkness: DarknessView[];
   onMoveDarkness: (id: string, x: number, y: number) => void;
-  onRemoveDarkness: (id: string) => void;
   mySlot: PlayerSlot;
   /** Which character each slot picked — null for a slot that hasn't (in
    *  practice always set once phase is 'playing', but guarded regardless). */
@@ -162,7 +161,6 @@ export function Map({
   boardCards,
   darkness,
   onMoveDarkness,
-  onRemoveDarkness,
   mySlot,
   characterIds,
   onCoinDragStart,
@@ -449,7 +447,6 @@ export function Map({
               onPointerMove={handleDarknessPointerMove(patch)}
               onPointerUp={endDarknessDrag(patch)}
               onPointerCancel={endDarknessDrag(patch)}
-              onRemove={() => onRemoveDarkness(patch.id)}
             />
           );
         })}
