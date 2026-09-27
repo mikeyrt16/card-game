@@ -1,16 +1,16 @@
 import buttonClickSound from '../assets/sounds/button-click.mp3';
-import coinPickUpSound from '../assets/sounds/card-1.mp3';
 import cardDealSound from '../assets/sounds/card-3.mp3';
 import cardFlipSound from '../assets/sounds/card-flip.mp3';
 import cardShuffleSound from '../assets/sounds/card-shuffle.mp3';
 import darknessSound from '../assets/sounds/darkness.mp3';
 import resurrectSound from '../assets/sounds/resurrect.mp3';
-import coinSound from '../assets/sounds/coin.mp3';
 import squeakSound1 from '../assets/sounds/squeak-1.mp3';
 import squeakSound2 from '../assets/sounds/squeak-2.mp3';
 import squeakSound3 from '../assets/sounds/squeak-3.mp3';
 import squeakSound4 from '../assets/sounds/squeak-4.mp3';
 import squeakSound5 from '../assets/sounds/squeak-5.mp3';
+import thud from '../assets/sounds/thud.mp3';
+import takeIt from '../assets/sounds/take-it.mp3';
 
 /** A fresh Audio per call rather than one shared element per sound: two of the
  *  same sound close together (both players at once) then overlap instead of the
@@ -71,13 +71,13 @@ export function playDarknessSound(): void {
  *  `useCoinDragSound`, which watches `CoinState.draggedBy` (already public
  *  and shared, like `GameStateView.darkness` above) for this transition. */
 export function playCoinPickUpSound(): void {
-  play(coinPickUpSound);
+  play(takeIt);
 }
 
 /** A coin being put back down. Played on both players' screens — see
  *  `playCoinPickUpSound`. */
 export function playCoinPutDownSound(): void {
-  play(coinSound);
+  play(thud);
 }
 
 /** One squeak, picked at random each call. Five recordings rather than one,

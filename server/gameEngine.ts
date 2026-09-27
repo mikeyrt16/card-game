@@ -119,6 +119,25 @@ function createMinionCoins(x: number, count: number, health: number): CoinState[
   }));
 }
 
+/** How far out (in the same map-percentage units everything else here uses)
+ *  a spawned squirrel minion lands from Squirrel Girl's main coin. */
+const SQUIRREL_SPAWN_RADIUS = 8;
+
+/** Where the `index`-th (of up to SQUIRREL_GIRL_MINION_LIMIT) squirrel minion
+ *  spawns: near the main coin's own *current* position — wherever it's
+ *  actually been dragged to, not its original starting spot — rather than
+ *  the fixed vertical fan `minionCoinPosition` lays other characters'
+ *  pre-placed minions out in. Evenly spaced around it in a ring, one slot
+ *  per eventual minion (360° / the limit), so all eight end up spaced out
+ *  round the coin instead of piling on the same point. */
+function squirrelMinionSpawnPosition(main: { x: number; y: number }, index: number): { x: number; y: number } {
+  const angle = (index / SQUIRREL_GIRL_MINION_LIMIT) * 2 * Math.PI;
+  return {
+    x: Math.max(0, Math.min(100, main.x + SQUIRREL_SPAWN_RADIUS * Math.cos(angle))),
+    y: Math.max(0, Math.min(100, main.y + SQUIRREL_SPAWN_RADIUS * Math.sin(angle))),
+  };
+}
+
 /** Neither minion count nor health is known yet at this point (no character
  *  picked) — every slot starts with a single, placeholder-health minion,
  *  then `selectCharacter` resizes/re-heals it to match whatever character
@@ -436,9 +455,10 @@ function resurrectMinion(state: GameState, slot: PlayerSlot, minionIndex: number
 /** Squirrel Girl adding one more squirrel minion. Squirrel Girl only, and
  *  only up to SQUIRREL_GIRL_MINION_LIMIT for the whole game — past that this
  *  is a no-op, same as the shadow tokens once Spike's spent his three. The
- *  new coin lands in its own slot of the full eventual fan (computed against
- *  the limit, not the current count), so earlier minions that have since been
- *  dragged elsewhere aren't reshuffled by a later spawn. */
+ *  new coin lands in its own slot of the ring around the main coin's current
+ *  position (computed against the limit, not the current count), so earlier
+ *  minions that have since been dragged elsewhere aren't reshuffled by a
+ *  later spawn. */
 function spawnSquirrelMinion(state: GameState, slot: PlayerSlot): void {
   if (state.players[slot].characterId !== 'squirrelGirl') {
     return;
@@ -448,7 +468,7 @@ function spawnSquirrelMinion(state: GameState, slot: PlayerSlot): void {
     return;
   }
   const health = getCharacterDef('squirrelGirl')?.minionHealth ?? 1;
-  const position = minionCoinPosition(coinXForSlot(slot), coins.minions.length, SQUIRREL_GIRL_MINION_LIMIT);
+  const position = squirrelMinionSpawnPosition(coins.main, coins.minions.length);
   coins.minions = [...coins.minions, { ...position, draggedBy: null, health, altSide: false }];
 }
 
