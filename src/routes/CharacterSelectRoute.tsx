@@ -1,5 +1,6 @@
 import { useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { playButtonClickSound } from '../audio/sounds';
 import { CHARACTERS } from '../data/characters';
 import { useGameConnection } from '../net/GameConnectionProvider';
 import styles from './CharacterSelectRoute.module.css';
@@ -41,7 +42,10 @@ export function CharacterSelectRoute() {
               type="button"
               className={cardClassName}
               disabled={isOpponents}
-              onClick={() => send({ type: 'selectCharacter', characterId: character.id })}
+              onClick={() => {
+                playButtonClickSound();
+                send({ type: 'selectCharacter', characterId: character.id });
+              }}
             >
               <img src={character.portrait} alt="" className={styles.portrait} draggable={false} />
               <span className={styles.name}>{character.name}</span>
@@ -53,7 +57,10 @@ export function CharacterSelectRoute() {
         type="button"
         className={styles.continueButton}
         disabled={!canContinue}
-        onClick={() => send({ type: 'continueToMapSelect' })}
+        onClick={() => {
+          playButtonClickSound();
+          send({ type: 'continueToMapSelect' });
+        }}
       >
         Continue
       </button>

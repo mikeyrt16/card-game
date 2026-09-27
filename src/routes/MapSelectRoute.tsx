@@ -1,5 +1,6 @@
 import { useEffect } from 'react';
 import { Navigate, useNavigate } from 'react-router-dom';
+import { playButtonClickSound } from '../audio/sounds';
 import { MAPS } from '../data/maps';
 import { GameMenu } from '../components/GameMenu/GameMenu';
 import { useGameConnection } from '../net/GameConnectionProvider';
@@ -44,7 +45,10 @@ export function MapSelectRoute() {
               className={
                 map.id === selectedMap?.id ? `${styles.mapButton} ${styles.mapButtonSelected}` : styles.mapButton
               }
-              onClick={() => send({ type: 'selectMap', mapId: map.id })}
+              onClick={() => {
+                playButtonClickSound();
+                send({ type: 'selectMap', mapId: map.id });
+              }}
             >
               {map.name}
             </button>
@@ -54,7 +58,10 @@ export function MapSelectRoute() {
           type="button"
           className={styles.continueButton}
           disabled={!selectedMap}
-          onClick={() => send({ type: 'continueToGame' })}
+          onClick={() => {
+            playButtonClickSound();
+            send({ type: 'continueToGame' });
+          }}
         >
           Continue
         </button>

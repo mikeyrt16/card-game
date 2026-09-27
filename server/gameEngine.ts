@@ -1,5 +1,5 @@
 import { getCharacterDef } from '../src/shared/characters';
-import { SHADOW_TOKEN_LIMIT } from '../src/shared/protocol';
+import { RESURRECTED_MINION_HEALTH, SHADOW_TOKEN_LIMIT } from '../src/shared/protocol';
 import type {
   BoardCardView,
   CoinState,
@@ -55,6 +55,13 @@ interface ServerPlayerState {
    *  move. Only the id is stored — what the opponent is allowed to see of
    *  it is worked out per broadcast, in buildDraggedCardView. */
   draggedCard: { cardId: string; x: number; y: number } | null;
+  /** Running totals of cards dealt off this player's own draw pile, and of
+   *  their board cards turned face up. Both clients play their respective
+   *  sounds off a rise in these — see `PlayerView`. */
+  cardsDrawn: number;
+  boardCardsFlipped: number;
+  minionsResurrected: number;
+  pilesShuffled: number;
 }
 
 export interface GameState {
@@ -81,6 +88,10 @@ export function createEmptyPlayer(): ServerPlayerState {
     cursor: null,
     handOpen: false,
     draggedCard: null,
+    cardsDrawn: 0,
+    boardCardsFlipped: 0,
+    minionsResurrected: 0,
+    pilesShuffled: 0,
   };
 }
 
@@ -248,6 +259,9 @@ function draw(player: ServerPlayerState): void {
   const [top, ...rest] = player.drawPile;
   player.drawPile = rest;
   player.hand = [...player.hand, withNewId(top)];
+  // Counted only now the deal has actually happened — the empty-pile bail
+  // above leaves it alone, so no client plays a sound for nothing.
+  player.cardsDrawn += 1;
 }
 
 function returnFromDiscard(player: ServerPlayerState): void {
@@ -400,6 +414,24 @@ function endDragCoin(
   }
 }
 
+/** Willow's minion coming back. Unlike the open `updateCoinHealth` below,
+ *  this is one character's specific move, so it's held to it: Willow only,
+ *  her own minion only, and only one that's actually dead — reviving isn't a
+ *  top-up for a minion that's still standing. */
+function resurrectMinion(state: GameState, slot: PlayerSlot, minionIndex: number): void {
+  if (state.players[slot].characterId !== 'willow') {
+    return;
+  }
+  const coin = resolveCoin(state, slot, 'minion', minionIndex);
+  if (!coin || coin.health > 0) {
+    return;
+  }
+  coin.health = RESURRECTED_MINION_HEALTH;
+  // Past the bails, so nothing is sounded on either screen for a resurrection
+  // that didn't happen.
+  state.players[slot].minionsResurrected += 1;
+}
+
 /** Like coin dragging, anyone can edit any coin's health — it's a shared HP
  *  tracker, not gated to the coin's own player. 0 or below is allowed
  *  through (that's what marks the coin dead on the client); only a
@@ -478,6 +510,9 @@ function flipBoardCard(player: ServerPlayerState, cardId: string): void {
     return;
   }
   placed.faceUp = true;
+  // Past the bails above, so a double-click on an already-revealed card — or
+  // on one that isn't there — makes no sound on either screen.
+  player.boardCardsFlipped += 1;
 }
 
 function moveCursor(player: ServerPlayerState, x: number, y: number): void {
@@ -536,9 +571,11 @@ export function applyAction(state: GameState, slot: PlayerSlot, action: GameActi
       return;
     case 'shuffleDiscard':
       player.discardPile = shuffle(player.discardPile);
+      player.pilesShuffled += 1;
       return;
     case 'shuffleDrawPile':
       player.drawPile = shuffle(player.drawPile);
+      player.pilesShuffled += 1;
       return;
     case 'returnToMainMenu':
       returnToMainMenu(state);
@@ -557,6 +594,9 @@ export function applyAction(state: GameState, slot: PlayerSlot, action: GameActi
       return;
     case 'toggleCoinAltSide':
       toggleCoinAltSide(state, action.coinOwner, action.coinType, action.minionIndex);
+      return;
+    case 'resurrectMinion':
+      resurrectMinion(state, slot, action.minionIndex);
       return;
     case 'toggleAliceCoin':
       toggleAliceCoin(state, action.owner);
@@ -691,6 +731,10 @@ export function buildView(state: GameState, forSlot: PlayerSlot): GameStateView 
       cursor: me.cursor,
       handOpen: me.handOpen,
       draggedCard: buildDraggedCardView(me),
+      cardsDrawn: me.cardsDrawn,
+      boardCardsFlipped: me.boardCardsFlipped,
+      minionsResurrected: me.minionsResurrected,
+      pilesShuffled: me.pilesShuffled,
     },
     opponent: opponent.token
       ? {
@@ -703,6 +747,10 @@ export function buildView(state: GameState, forSlot: PlayerSlot): GameStateView 
           cursor: opponent.cursor,
           handOpen: opponent.handOpen,
           draggedCard: buildDraggedCardView(opponent),
+          cardsDrawn: opponent.cardsDrawn,
+          boardCardsFlipped: opponent.boardCardsFlipped,
+          minionsResurrected: opponent.minionsResurrected,
+          pilesShuffled: opponent.pilesShuffled,
         }
       : null,
   };

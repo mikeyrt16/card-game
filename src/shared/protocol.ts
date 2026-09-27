@@ -67,6 +67,11 @@ export interface WireCard {
  *  many have been used. */
 export const SHADOW_TOKEN_LIMIT = 3;
 
+/** What Willow's minion comes back on, via `resurrectMinion` — deliberately
+ *  well short of the 6 it starts the game with (see CHARACTER_DEFS), so a
+ *  resurrection is a reprieve rather than a reset. */
+export const RESURRECTED_MINION_HEALTH = 3;
+
 /** A patch of darkness Spike has put on the map. Positioned in the same
  *  shared percentage-of-the-map frame the coins use, so both players agree
  *  on where it is however their screen is sized or oriented. Permanent once
@@ -146,6 +151,13 @@ export type GameAction =
    *  any player can trigger it — the client only offers the gesture (shift +
    *  double-click) when that character/coinType actually has alt art. */
   | { type: 'toggleCoinAltSide'; coinOwner: PlayerSlot; coinType: CoinType; minionIndex?: number }
+  /** Willow bringing her own fallen minion back, on
+   *  `RESURRECTED_MINION_HEALTH`. Only the sender's own minion, only Willow's,
+   *  and only one that's actually dead — a no-op otherwise. Distinct from
+   *  `updateCoinHealth` (which could express the same change) because it's a
+   *  specific move by a specific character, which lets the server hold it to
+   *  those rules and lets both clients sound it. */
+  | { type: 'resurrectMinion'; minionIndex: number }
   /** Flips Alice's special-component coin between small and big. `owner`
    *  identifies whose coin (i.e. whichever slot picked Alice) — like coin
    *  dragging, either player can trigger it, since it's rendered (mirrored)
@@ -224,6 +236,29 @@ export interface PlayerView {
   handOpen: boolean;
   /** The card this player is currently dragging, or null. */
   draggedCard: DraggedCardView | null;
+  /** How many cards this player has dealt themselves off their draw pile all
+   *  game — only ever climbs. Public, and sent for both players, because the
+   *  deal makes a sound on *both* screens: each client watches this for a
+   *  rise and plays it. A counter rather than a one-shot "a card was dealt"
+   *  flag since state is broadcast constantly (every cursor move echoes back)
+   *  — a flag would have to be cleared on some later broadcast, and would
+   *  either be missed or replayed. It also means the sound tracks what the
+   *  server actually did: drawing on an empty pile is a no-op and doesn't
+   *  move this, so nobody hears a card that was never dealt. */
+  cardsDrawn: number;
+  /** How many of this player's board cards they've turned face up all game.
+   *  Only ever climbs — a card can't be re-hidden — and drives the flip sound
+   *  on both screens, exactly as `cardsDrawn` does for the deal. */
+  boardCardsFlipped: number;
+  /** How many times this player has brought a minion back (Willow only, so
+   *  it stays 0 for everyone else). Drives the resurrect sound on both
+   *  screens, exactly as `cardsDrawn` does for the deal. */
+  minionsResurrected: number;
+  /** How many times this player has shuffled either of their own piles.
+   *  Drives the shuffle sound on both screens, exactly as `cardsDrawn` does
+   *  for the deal — one counter for both piles, since both play the same
+   *  sound. */
+  pilesShuffled: number;
 }
 
 export interface GameStateView {

@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { playButtonClickSound } from '../../audio/sounds';
 import styles from './GameMenu.module.css';
 
 interface GameMenuProps {
@@ -12,7 +13,15 @@ export function GameMenu({ onReturnToMainMenu }: GameMenuProps) {
 
   return (
     <>
-      <button type="button" className={styles.menuButton} onClick={() => setIsOpen(true)} aria-label="Menu">
+      <button
+        type="button"
+        className={styles.menuButton}
+        onClick={() => {
+          playButtonClickSound();
+          setIsOpen(true);
+        }}
+        aria-label="Menu"
+      >
         <span className={styles.line} />
         <span className={styles.line} />
         <span className={styles.line} />
@@ -24,6 +33,7 @@ export function GameMenu({ onReturnToMainMenu }: GameMenuProps) {
               type="button"
               className={styles.menuItem}
               onClick={() => {
+                playButtonClickSound();
                 setIsOpen(false);
                 onReturnToMainMenu();
               }}

@@ -1,7 +1,17 @@
 import { useEffect, useRef, useState } from 'react';
 import { Navigate } from 'react-router-dom';
+import {
+  playButtonClickSound,
+  playCardDealSound,
+  playCardFlipSound,
+  playCardShuffleSound,
+  playDarknessSound,
+  playResurrectSound,
+} from '../audio/sounds';
+import { useTallySound } from '../audio/useTallySound';
 import { AliceCoin } from '../components/AliceCoin/AliceCoin';
 import { SpikeDarknessButton } from '../components/SpikeDarknessButton/SpikeDarknessButton';
+import { WillowResurrectButton } from '../components/WillowResurrectButton/WillowResurrectButton';
 import { CardPile } from '../components/CardPile/CardPile';
 import { PileDropZone, type PilePosition } from '../components/PileDropZone/PileDropZone';
 import { PlayerHand } from '../components/PlayerHand/PlayerHand';
@@ -110,6 +120,19 @@ function Game({ state, character, map, send }: GameProps) {
   useEffect(() => {
     setMovingCardId(null);
   }, [state]);
+
+  // Both players hear both players' deals and flips. Driven off the server's
+  // own tallies rather than the clicks that caused them, so the two screens
+  // play in step and neither plays for an action the server refused.
+  useTallySound(state.me.cardsDrawn, state.opponent?.cardsDrawn ?? null, playCardDealSound);
+  useTallySound(state.me.boardCardsFlipped, state.opponent?.boardCardsFlipped ?? null, playCardFlipSound);
+  useTallySound(state.me.minionsResurrected, state.opponent?.minionsResurrected ?? null, playResurrectSound);
+  useTallySound(state.me.pilesShuffled, state.opponent?.pilesShuffled ?? null, playCardShuffleSound);
+  // Darkness has no separate per-player tally to pair up here — state.darkness
+  // is already shared and only-grows (see playDarknessSound) — so it's passed
+  // as the "mine" side alone, with "theirs" pinned to null so the hook's
+  // opponent-side check can never itself trigger a second play of the same rise.
+  useTallySound(state.darkness.length, null, playDarknessSound);
 
   const visible = (cards: WireCard[]) => cards.filter((c) => c.id !== movingCardId).map(toClientCard);
   const hand = visible(state.me.hand);
@@ -293,6 +316,18 @@ function Game({ state, character, map, send }: GameProps) {
     send({ type: 'dropCardOnBoard', cardId, x, y });
   };
 
+  /** Willow bringing her minion back. The health it revives on, and the rules
+   *  about when it may happen at all, are the server's — this only names the
+   *  minion. */
+  const handleResurrectMinion = (minionIndex: number) => {
+    send({ type: 'resurrectMinion', minionIndex });
+  };
+
+  // Which of my own minions is down, if any — what puts Willow's resurrect
+  // button on screen. findIndex rather than a boolean since the action names
+  // the minion; Willow has just the one today, but this doesn't assume it.
+  const deadMinionIndex = state.coins[state.mySlot].minions.findIndex((minion) => minion.health <= 0);
+
   const handleDropOntoHand = (cardId: string, index: number) => {
     setIsDragActive(false);
     setDraggedCard(null);
@@ -392,7 +427,10 @@ function Game({ state, character, map, send }: GameProps) {
           placement="opponent"
           anchor={opponentDiscardPile.length === 0 ? 'draw' : 'discard'}
           ariaLabel={`View ${opponentCharacter.name}'s character card`}
-          onClick={() => setViewingCharacterCard('opponent')}
+          onClick={() => {
+            playButtonClickSound();
+            setViewingCharacterCard('opponent');
+          }}
         />
       )}
       <PlayerHand
@@ -411,7 +449,10 @@ function Game({ state, character, map, send }: GameProps) {
         }}
         onReorder={(reordered) => send({ type: 'reorderHand', order: reordered.map((card) => card.id) })}
         onExternalDrop={handleDropOntoHand}
-        onShowHand={() => setShowHandConfirm(true)}
+        onShowHand={() => {
+          playButtonClickSound();
+          setShowHandConfirm(true);
+        }}
         showHandGlowRgb={characterGlowRgb(character.id)}
       />
       {!isViewingDraw && (
@@ -423,11 +464,15 @@ function Game({ state, character, map, send }: GameProps) {
           onClick={handleDraw}
           disabled={isViewingDiscard || isViewingOpponentDiscard}
           onView={() => {
+            playButtonClickSound();
             setIsViewingDraw(true);
             setIsViewingDiscard(false);
             setIsViewingOpponentDiscard(false);
           }}
-          onShuffle={() => setShuffleConfirm('draw')}
+          onShuffle={() => {
+            playButtonClickSound();
+            setShuffleConfirm('draw');
+          }}
         />
       )}
       {character.id === 'alice' && (
@@ -447,6 +492,12 @@ function Game({ state, character, map, send }: GameProps) {
           onAddDarkness={() => send({ type: 'addDarkness' })}
         />
       )}
+      {/* Willow's equivalent, in the same spot above her draw pile, and drawn
+          only for her — the opponent doesn't get to raise her minion. Appears
+          only while it's down and goes on its own once it's back up. */}
+      {character.id === 'willow' && deadMinionIndex !== -1 && (
+        <WillowResurrectButton onResurrect={() => handleResurrectMinion(deadMinionIndex)} />
+      )}
       {!isViewingDiscard && (
         <CardPile
           count={discardPile.length}
@@ -456,18 +507,25 @@ function Game({ state, character, map, send }: GameProps) {
           onClick={handleReturnFromDiscard}
           disabled={isViewingDraw || isViewingOpponentDiscard}
           onView={() => {
+            playButtonClickSound();
             setIsViewingDiscard(true);
             setIsViewingDraw(false);
             setIsViewingOpponentDiscard(false);
           }}
-          onShuffle={() => setShuffleConfirm('discard')}
+          onShuffle={() => {
+            playButtonClickSound();
+            setShuffleConfirm('discard');
+          }}
         />
       )}
       <InfoButton
         placement="player"
         anchor={discardPile.length === 0 ? 'draw' : 'discard'}
         ariaLabel={`View ${character.name}'s character card`}
-        onClick={() => setViewingCharacterCard('me')}
+        onClick={() => {
+          playButtonClickSound();
+          setViewingCharacterCard('me');
+        }}
       />
       <PileDropZone
         placement="draw"
@@ -564,7 +622,10 @@ function Game({ state, character, map, send }: GameProps) {
             }
             setShuffleConfirm(null);
           }}
-          onCancel={() => setShuffleConfirm(null)}
+          onCancel={() => {
+            playButtonClickSound();
+            setShuffleConfirm(null);
+          }}
         />
       )}
       {showHandConfirm && (
@@ -572,10 +633,14 @@ function Game({ state, character, map, send }: GameProps) {
           message="Are you sure you want to show your hand to the opponent?"
           confirmLabel="Show hand"
           onConfirm={() => {
+            playButtonClickSound();
             send({ type: 'showHandToOpponent' });
             setShowHandConfirm(false);
           }}
-          onCancel={() => setShowHandConfirm(false)}
+          onCancel={() => {
+            playButtonClickSound();
+            setShowHandConfirm(false);
+          }}
         />
       )}
       {viewingCharacterCard && (
