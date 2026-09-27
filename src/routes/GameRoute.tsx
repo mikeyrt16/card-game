@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { Navigate } from 'react-router-dom';
 import { AliceCoin } from '../components/AliceCoin/AliceCoin';
+import { ArthurDarknessButton } from '../components/ArthurDarknessButton/ArthurDarknessButton';
 import { CardPile } from '../components/CardPile/CardPile';
 import { PileDropZone, type PilePosition } from '../components/PileDropZone/PileDropZone';
 import { PlayerHand } from '../components/PlayerHand/PlayerHand';
@@ -326,6 +327,9 @@ function Game({ state, character, map, send }: GameProps) {
             send({ type: 'updateCoinHealth', coinOwner: owner, coinType, minionIndex, health })
           }
           boardCards={boardCards}
+          darkness={state.darkness}
+          onMoveDarkness={(id, x, y) => send({ type: 'moveDarkness', id, x, y })}
+          onRemoveDarkness={(id) => send({ type: 'removeDarkness', id })}
           onDropCardOnBoard={handleDropCardOnBoard}
           onFlipBoardCard={(cardId) => send({ type: 'flipBoardCard', cardId })}
           draggedCardCentreOffset={draggedCardCentreOffset}
@@ -429,6 +433,11 @@ function Game({ state, character, map, send }: GameProps) {
           big={state.me.aliceCoinBig}
           onToggle={() => send({ type: 'toggleAliceCoin', owner: state.mySlot })}
         />
+      )}
+      {/* A control rather than a piece, so unlike Alice's coin it's only
+          drawn for Arthur himself — what it places is the shared part. */}
+      {character.id === 'arthur' && (
+        <ArthurDarknessButton onAddDarkness={() => send({ type: 'addDarkness' })} />
       )}
       {!isViewingDiscard && (
         <CardPile

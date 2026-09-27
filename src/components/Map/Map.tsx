@@ -11,9 +11,17 @@ import { getCardBackImage, getCardImage, getCoinImage } from '../../data/assets'
 import { characterColorHex, characterGlowRgb, hexToRgb } from '../../data/characterColors';
 import type { CardData } from '../../data/cards';
 import { BoardCard } from '../BoardCard/BoardCard';
+import { Darkness } from '../Darkness/Darkness';
 import { draggedCardCentre } from '../DragPreview/draggedCardCentre';
 import { HealthEditDialog } from '../HealthEditDialog/HealthEditDialog';
-import type { BoardCardView, CoinState, CoinType, PlayerCoins, PlayerSlot } from '../../shared/protocol';
+import type {
+  BoardCardView,
+  CoinState,
+  CoinType,
+  DarknessView,
+  PlayerCoins,
+  PlayerSlot,
+} from '../../shared/protocol';
 import styles from './Map.module.css';
 
 const SLOTS: PlayerSlot[] = ['player1', 'player2'];
@@ -202,6 +210,10 @@ interface MapProps {
   coins: Record<PlayerSlot, PlayerCoins>;
   /** Cards lying on the map, both players'. */
   boardCards: BoardCardView[];
+  /** Arthur's patches of darkness. */
+  darkness: DarknessView[];
+  onMoveDarkness: (id: string, x: number, y: number) => void;
+  onRemoveDarkness: (id: string) => void;
   mySlot: PlayerSlot;
   /** Which character each slot picked — null for a slot that hasn't (in
    *  practice always set once phase is 'playing', but guarded regardless). */
@@ -232,6 +244,9 @@ export function Map({
   inverted,
   coins,
   boardCards,
+  darkness,
+  onMoveDarkness,
+  onRemoveDarkness,
   mySlot,
   characterIds,
   onCoinDragStart,
@@ -274,6 +289,13 @@ export function Map({
   // unhides the card, so it reappears already in its new place — without
   // this it would show at the old one for the length of the round trip.
   const [droppedCard, setDroppedCard] = useState<{ cardId: string; x: number; y: number } | null>(null);
+  // Darkness is slid about exactly as the coins are: a local optimistic
+  // position so it tracks the pointer without waiting on the server, and
+  // its own throttle so a fast drag can't flood the socket.
+  const [localDarknessDrag, setLocalDarknessDrag] = useState<{ id: string; x: number; y: number } | null>(null);
+  const darknessGrabOffsetRef = useRef<{ x: number; y: number }>({ x: 0, y: 0 });
+  const darknessRafRef = useRef<number | null>(null);
+  const pendingDarknessMoveRef = useRef<{ id: string; x: number; y: number } | null>(null);
   // Held until the server's own record of the card actually matches, rather
   // than merely until the next broadcast: broadcasts arrive constantly
   // mid-drag (every cursor update echoes back), so "the next one" is
@@ -342,6 +364,56 @@ export function Map({
     if (pending) {
       onCoinMove(pending.owner, pending.coinType, pending.minionIndex, pending.x, pending.y);
     }
+  };
+
+  const flushPendingDarknessMove = () => {
+    darknessRafRef.current = null;
+    const pending = pendingDarknessMoveRef.current;
+    if (pending) {
+      onMoveDarkness(pending.id, pending.x, pending.y);
+    }
+  };
+
+  const handleDarknessPointerDown = (patch: DarknessView) => (e: ReactPointerEvent<HTMLDivElement>) => {
+    e.currentTarget.setPointerCapture(e.pointerId);
+    const point = toImagePercent(e.clientX, e.clientY);
+    darknessGrabOffsetRef.current = point ? { x: point.x - patch.x, y: point.y - patch.y } : { x: 0, y: 0 };
+    // Stays put where it already is — no snap to the pointer on grab.
+    setLocalDarknessDrag({ id: patch.id, x: patch.x, y: patch.y });
+  };
+
+  const handleDarknessPointerMove = (patch: DarknessView) => (e: ReactPointerEvent<HTMLDivElement>) => {
+    if (localDarknessDrag?.id !== patch.id) {
+      return;
+    }
+    const point = toImagePercent(e.clientX, e.clientY);
+    if (!point) {
+      return;
+    }
+    const offset = darknessGrabOffsetRef.current;
+    const next = {
+      id: patch.id,
+      x: Math.max(0, Math.min(100, point.x - offset.x)),
+      y: Math.max(0, Math.min(100, point.y - offset.y)),
+    };
+    setLocalDarknessDrag(next);
+    pendingDarknessMoveRef.current = next;
+    if (darknessRafRef.current === null) {
+      darknessRafRef.current = requestAnimationFrame(flushPendingDarknessMove);
+    }
+  };
+
+  const endDarknessDrag = (patch: DarknessView) => (e: ReactPointerEvent<HTMLDivElement>) => {
+    if (localDarknessDrag?.id !== patch.id) {
+      return;
+    }
+    e.currentTarget.releasePointerCapture(e.pointerId);
+    if (darknessRafRef.current !== null) {
+      cancelAnimationFrame(darknessRafRef.current);
+      darknessRafRef.current = null;
+    }
+    pendingDarknessMoveRef.current = null;
+    setLocalDarknessDrag(null);
   };
 
   const handlePointerDown = (owner: PlayerSlot, coinType: CoinType, minionIndex: number | undefined, coin: CoinState) => (
@@ -443,6 +515,27 @@ export function Map({
           setImageSize({ width: img.naturalWidth, height: img.naturalHeight });
         }}
       />
+      {/* Rendered before the coins and cards so it sits beneath them —
+          darkness settles on the board, everything else sits on top. */}
+      {geometry &&
+        darkness.map((patch) => {
+          const position = localDarknessDrag?.id === patch.id ? localDarknessDrag : patch;
+          const view = toViewPercent(position, inverted);
+          const { x: pxX, y: pxY } = imagePercentToContainerPx(view.x, view.y, geometry);
+
+          return (
+            <Darkness
+              key={patch.id}
+              left={pxX}
+              top={pxY}
+              onPointerDown={handleDarknessPointerDown(patch)}
+              onPointerMove={handleDarknessPointerMove(patch)}
+              onPointerUp={endDarknessDrag(patch)}
+              onPointerCancel={endDarknessDrag(patch)}
+              onRemove={() => onRemoveDarkness(patch.id)}
+            />
+          );
+        })}
       {geometry &&
         boardCards.map((boardCard) => {
           const ownerCharacterId = characterIds[boardCard.owner];

@@ -56,6 +56,15 @@ export interface WireCard {
   slug: string;
 }
 
+/** A patch of darkness Arthur has put on the map. Positioned in the same
+ *  shared percentage-of-the-map frame the coins use, so both players agree
+ *  on where it is however their screen is sized or oriented. */
+export interface DarknessView {
+  id: string;
+  x: number;
+  y: number;
+}
+
 /** A card lying on the map, dropped there out of someone's hand. Position
  *  is in the same shared percentage-of-the-map frame the coins use, so both
  *  players agree on where it is however their screen is sized or oriented. */
@@ -151,7 +160,14 @@ export type GameAction =
    *  already been shown. */
   | { type: 'showHandToOpponent' }
   /** Dismisses the hand the sender was shown (their own view only). */
-  | { type: 'clearRevealedHand' };
+  | { type: 'clearRevealedHand' }
+  /** Drops a fresh patch of darkness on the middle of the map. Arthur's
+   *  own, so a no-op from anyone else. */
+  | { type: 'addDarkness' }
+  /** Darkness is shared furniture once placed: like a coin, either player
+   *  can slide it about or clear it away. */
+  | { type: 'moveDarkness'; id: string; x: number; y: number }
+  | { type: 'removeDarkness'; id: string };
 
 export type ClientAction = HelloMessage | GameAction;
 
@@ -209,6 +225,8 @@ export interface GameStateView {
   coins: Record<PlayerSlot, PlayerCoins>;
   /** Every card lying face down or face up on the map, both players'. */
   boardCards: BoardCardView[];
+  /** Arthur's patches of darkness, shared and public like the coins. */
+  darkness: DarknessView[];
   /** The receiving player's own board — hand and the draw pile's actual
    *  contents are only ever sent to their owner, for a deliberate "look
    *  through your deck" view; the opponent's stay hidden as counts. */

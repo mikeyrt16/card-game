@@ -1,0 +1,27 @@
+/* Sits above the player's own draw pile, the same spot Alice's coin takes
+   (CardPile's .placementDraw: left 32px, width 110px, bottom 20px, ~154px
+   tall) — centred on that 110px pile, clearing its top edge by 28px. */
+.button {
+  position: fixed;
+  left: 32px;
+  bottom: 202px;
+  width: 110px;
+  padding: 10px 6px;
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  border-radius: 8px;
+  background: rgba(10, 10, 10, 0.85);
+  color: #fff;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+  box-shadow: 0 3px 10px rgba(0, 0, 0, 0.6);
+  transition: box-shadow 0.15s ease, background 0.15s ease;
+  z-index: 50;
+}
+
+/* --glow-rgb is set inline, from the same per-character palette the coins
+   and their particles use. */
+.button:hover {
+  background: rgba(30, 30, 30, 0.9);
+  box-shadow: 0 0 0 3px rgb(var(--glow-rgb) / 60%), 0 0 22px 8px rgb(var(--glow-rgb) / 65%);
+}

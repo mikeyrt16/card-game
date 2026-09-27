@@ -4,6 +4,7 @@ import type {
   CoinState,
   CoinType,
   CursorPosition,
+  DarknessView,
   DraggedCardView,
   GameAction,
   GamePhase,
@@ -59,6 +60,9 @@ export interface GameState {
   phase: GamePhase;
   selectedMapId: string | null;
   coins: Record<PlayerSlot, PlayerCoins>;
+  /** Kept at game level rather than on Arthur's player, like the coins:
+   *  once placed it's shared furniture either player can move or clear. */
+  darkness: DarknessView[];
   players: Record<PlayerSlot, ServerPlayerState>;
 }
 
@@ -117,6 +121,7 @@ export function createInitialState(): GameState {
     phase: 'character-select',
     selectedMapId: null,
     coins: createInitialCoins(),
+    darkness: [],
     players: { player1: createEmptyPlayer(), player2: createEmptyPlayer() },
   };
 }
@@ -313,6 +318,7 @@ function returnToMainMenu(state: GameState): void {
   state.phase = 'character-select';
   state.selectedMapId = null;
   state.coins = createInitialCoins();
+  state.darkness = [];
   resetPlayerToCharacterSelect(state.players.player1);
   resetPlayerToCharacterSelect(state.players.player2);
 }
@@ -544,6 +550,27 @@ export function applyAction(state: GameState, slot: PlayerSlot, action: GameActi
     case 'clearRevealedHand':
       player.revealedHand = [];
       return;
+    case 'addDarkness':
+      // Arthur's to place. Lands mid-map, to be dragged wherever it's
+      // wanted from there.
+      if (player.characterId === 'arthur') {
+        state.darkness = [...state.darkness, { id: crypto.randomUUID(), x: 50, y: 50 }];
+      }
+      return;
+    case 'moveDarkness': {
+      if (!Number.isFinite(action.x) || !Number.isFinite(action.y)) {
+        return;
+      }
+      const patch = state.darkness.find((d) => d.id === action.id);
+      if (patch) {
+        patch.x = Math.max(0, Math.min(100, action.x));
+        patch.y = Math.max(0, Math.min(100, action.y));
+      }
+      return;
+    }
+    case 'removeDarkness':
+      state.darkness = state.darkness.filter((d) => d.id !== action.id);
+      return;
     case 'dropCardOnBoard':
       dropCardOnBoard(player, action.cardId, action.x, action.y);
       return;
@@ -615,6 +642,7 @@ export function buildView(state: GameState, forSlot: PlayerSlot): GameStateView 
     mySlot: forSlot,
     selectedMapId: state.selectedMapId,
     coins: state.coins,
+    darkness: state.darkness,
     boardCards: [
       ...buildBoardCardViews(state.players.player1, 'player1', forSlot),
       ...buildBoardCardViews(state.players.player2, 'player2', forSlot),

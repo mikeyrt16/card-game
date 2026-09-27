@@ -1,0 +1,31 @@
+.darkness {
+  position: absolute;
+  width: 160px;
+  height: 160px;
+  opacity: 0.85;
+  /* Centred on its point, the same way the coins are. */
+  transform: translate(-50%, -50%);
+  cursor: grab;
+  /* Stops the browser's own touch scroll/zoom gestures competing with the
+     drag, same as the coins. */
+  touch-action: none;
+  /* Under everything else on the board: the coins sit at 1, their health
+     badges at 2 and board cards at 3. Rendered before the coins' particle
+     fountains too, which share this depth, so those still read over it. */
+  z-index: 0;
+  border-radius: 50%;
+}
+
+.darkness:active {
+  cursor: grabbing;
+}
+
+.image {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  display: block;
+  pointer-events: none;
+  user-select: none;
+  -webkit-user-drag: none;
+}
