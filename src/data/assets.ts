@@ -120,12 +120,25 @@ export function getInverseMapImage(mapId: string): string {
   return url;
 }
 
-export function getCoinImage(characterId: string, coinType: 'main' | 'minion'): string {
-  const url = coinsByKey[`${characterId}/${coinType}`];
+export function getCoinImage(
+  characterId: string,
+  coinType: 'main' | 'minion',
+  variant: 'normal' | 'alt' = 'normal',
+): string {
+  const key = variant === 'alt' ? `${coinType}-alt` : coinType;
+  const url = coinsByKey[`${characterId}/${key}`];
   if (!url) {
-    throw new Error(`Missing coin image for ${characterId}/${coinType}`);
+    throw new Error(`Missing coin image for ${characterId}/${key}`);
   }
   return url;
+}
+
+/** Whether this character/coinType has an alternate face (e.g.
+ *  "main-alt.png") that the coin can be flipped to show. Most coins don't —
+ *  callers should check this before ever asking for the 'alt' variant
+ *  above, since that throws if the art doesn't exist. */
+export function hasCoinAltImage(characterId: string, coinType: 'main' | 'minion'): boolean {
+  return Boolean(coinsByKey[`${characterId}/${coinType}-alt`]);
 }
 
 /** A character's special-component art, e.g. `getSpecialImage('alice', 'big')`. */

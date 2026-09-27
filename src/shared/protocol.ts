@@ -28,6 +28,10 @@ export interface CoinState {
    *  `updateCoinHealth`. At 0 or below, the coin is treated as dead — the
    *  client plays a death animation and it stops being interactable. */
   health: number;
+  /** Whether the coin is showing its alternate face. Only meaningful for a
+   *  character/coinType with alt art (see `hasCoinAltImage`) — flipped via
+   *  `toggleCoinAltSide`, always starting false. */
+  altSide: boolean;
 }
 
 /** One player's coins — a single main coin plus however many minion coins
@@ -130,6 +134,10 @@ export type GameAction =
   /** Any player can edit any coin's health, same as coin dragging — this is
    *  a shared HP tracker, not a per-player stat. */
   | { type: 'updateCoinHealth'; coinOwner: PlayerSlot; coinType: CoinType; minionIndex?: number; health: number }
+  /** Flips a coin to its alternate face (or back). Like coin dragging/health,
+   *  any player can trigger it — the client only offers the gesture (shift +
+   *  double-click) when that character/coinType actually has alt art. */
+  | { type: 'toggleCoinAltSide'; coinOwner: PlayerSlot; coinType: CoinType; minionIndex?: number }
   /** Flips Alice's special-component coin between small and big. `owner`
    *  identifies whose coin (i.e. whichever slot picked Alice) — like coin
    *  dragging, either player can trigger it, since it's rendered (mirrored)

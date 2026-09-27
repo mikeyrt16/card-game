@@ -326,6 +326,9 @@ function Game({ state, character, map, send }: GameProps) {
           onUpdateCoinHealth={(owner, coinType, minionIndex, health) =>
             send({ type: 'updateCoinHealth', coinOwner: owner, coinType, minionIndex, health })
           }
+          onToggleCoinAltSide={(owner, coinType, minionIndex) =>
+            send({ type: 'toggleCoinAltSide', coinOwner: owner, coinType, minionIndex })
+          }
           boardCards={boardCards}
           darkness={state.darkness}
           onMoveDarkness={(id, x, y) => send({ type: 'moveDarkness', id, x, y })}

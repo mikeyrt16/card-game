@@ -96,7 +96,13 @@ function coinXForSlot(slot: PlayerSlot): number {
 function createMinionCoins(x: number, count: number, health: number): CoinState[] {
   const spacing = 10;
   const startY = 58 - ((count - 1) * spacing) / 2;
-  return Array.from({ length: count }, (_, i) => ({ x, y: startY + i * spacing, draggedBy: null, health }));
+  return Array.from({ length: count }, (_, i) => ({
+    x,
+    y: startY + i * spacing,
+    draggedBy: null,
+    health,
+    altSide: false,
+  }));
 }
 
 /** Neither minion count nor health is known yet at this point (no character
@@ -106,11 +112,11 @@ function createMinionCoins(x: number, count: number, health: number): CoinState[
 function createInitialCoins(): Record<PlayerSlot, PlayerCoins> {
   return {
     player1: {
-      main: { x: coinXForSlot('player1'), y: 45, draggedBy: null, health: 1 },
+      main: { x: coinXForSlot('player1'), y: 45, draggedBy: null, health: 1, altSide: false },
       minions: createMinionCoins(coinXForSlot('player1'), 1, 1),
     },
     player2: {
-      main: { x: coinXForSlot('player2'), y: 45, draggedBy: null, health: 1 },
+      main: { x: coinXForSlot('player2'), y: 45, draggedBy: null, health: 1, altSide: false },
       minions: createMinionCoins(coinXForSlot('player2'), 1, 1),
     },
   };
@@ -225,6 +231,12 @@ function selectCharacter(state: GameState, slot: PlayerSlot, characterId: string
   const minionCount = def?.minionCount ?? 1;
   const minionHealth = def?.minionHealth ?? 1;
   state.coins[slot].main.health = def?.mainHealth ?? 1;
+  // Reset explicitly (rather than left as whatever it was): createMinionCoins
+  // below already starts the minions false by building fresh objects, but
+  // main persists in place, so its own altSide needs the same reset spelled
+  // out — otherwise re-picking a character with alt art, flipping the main
+  // coin, then switching away and back would leave it stuck on the alt face.
+  state.coins[slot].main.altSide = false;
   state.coins[slot].minions = createMinionCoins(coinXForSlot(slot), minionCount, minionHealth);
 }
 
@@ -405,6 +417,23 @@ function updateCoinHealth(
   coin.health = Math.round(health);
 }
 
+/** Like coin dragging/health, any player can flip a coin's face — the
+ *  server doesn't know which characters have alt art (that's Vite-bundled
+ *  client asset data), so it trusts the client to only send this when the
+ *  gesture is actually offered. */
+function toggleCoinAltSide(
+  state: GameState,
+  coinOwner: PlayerSlot,
+  coinType: CoinType,
+  minionIndex: number | undefined,
+): void {
+  const coin = resolveCoin(state, coinOwner, coinType, minionIndex);
+  if (!coin) {
+    return;
+  }
+  coin.altSide = !coin.altSide;
+}
+
 /** Like coin dragging/health, either player can flip this — it's rendered
  *  (mirrored) on both screens, not just the Alice player's own. A no-op if
  *  `owner` isn't currently playing Alice (e.g. a stale click from just
@@ -524,6 +553,9 @@ export function applyAction(state: GameState, slot: PlayerSlot, action: GameActi
       return;
     case 'updateCoinHealth':
       updateCoinHealth(state, action.coinOwner, action.coinType, action.minionIndex, action.health);
+      return;
+    case 'toggleCoinAltSide':
+      toggleCoinAltSide(state, action.coinOwner, action.coinType, action.minionIndex);
       return;
     case 'toggleAliceCoin':
       toggleAliceCoin(state, action.owner);

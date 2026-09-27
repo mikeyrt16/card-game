@@ -7,7 +7,7 @@ import {
   type DragEvent,
   type PointerEvent as ReactPointerEvent,
 } from 'react';
-import { getCardBackImage, getCardImage, getCoinImage } from '../../data/assets';
+import { getCardBackImage, getCardImage, getCoinImage, hasCoinAltImage } from '../../data/assets';
 import { characterGlowRgb } from '../../data/characterColors';
 import type { CardData } from '../../data/cards';
 import { BoardCard } from '../BoardCard/BoardCard';
@@ -136,6 +136,8 @@ interface MapProps {
   onCoinMove: (owner: PlayerSlot, coinType: CoinType, minionIndex: number | undefined, x: number, y: number) => void;
   onCoinDragEnd: (owner: PlayerSlot, coinType: CoinType, minionIndex: number | undefined) => void;
   onUpdateCoinHealth: (owner: PlayerSlot, coinType: CoinType, minionIndex: number | undefined, health: number) => void;
+  /** Shift + double-click on a coin with alt art — never sent otherwise. */
+  onToggleCoinAltSide: (owner: PlayerSlot, coinType: CoinType, minionIndex: number | undefined) => void;
   /** A card was dropped on open board — either newly played out of a hand
    *  or pile, or one already lying here being slid somewhere else. */
   onDropCardOnBoard: (cardId: string, x: number, y: number) => void;
@@ -167,6 +169,7 @@ export function Map({
   onCoinMove,
   onCoinDragEnd,
   onUpdateCoinHealth,
+  onToggleCoinAltSide,
   onDropCardOnBoard,
   onFlipBoardCard,
   onBoardCardDragStart,
@@ -530,17 +533,13 @@ export function Map({
             const ownerLabel = owner === mySlot ? 'Your' : "Opponent's";
             const coinLabel =
               minionIndex !== undefined && playerCoins.minions.length > 1 ? `minion ${minionIndex + 1}` : coinType;
+            const hasAlt = hasCoinAltImage(characterId, coinType);
 
             return (
               <Fragment key={`${owner}-${coinType}-${minionIndex ?? 0}`}>
                 <button
                   type="button"
-                  className={[
-                    styles.coin,
-                    coinType === 'minion' && styles.coinMinion,
-                    isGlowing && styles.coinGlowing,
-                    isDead && styles.coinDead,
-                  ]
+                  className={[styles.coin, isGlowing && styles.coinGlowing, isDead && styles.coinDead]
                     .filter(Boolean)
                     .join(' ')}
                   style={
@@ -555,20 +554,46 @@ export function Map({
                   onPointerMove={handlePointerMove(owner, coinType, minionIndex)}
                   onPointerUp={endLocalDrag(owner, coinType, minionIndex)}
                   onPointerCancel={endLocalDrag(owner, coinType, minionIndex)}
-                  onDoubleClick={() =>
-                    setEditingCoin({ owner, coinType, minionIndex, label: `${ownerLabel} ${coinLabel}`, health: coin.health })
-                  }
+                  onDoubleClick={(e) => {
+                    // Shift + double-click is reserved for the alt-side
+                    // flip — it never falls through to the health dialog,
+                    // even for a coin with no alt art to flip to.
+                    if (e.shiftKey) {
+                      if (hasAlt) {
+                        onToggleCoinAltSide(owner, coinType, minionIndex);
+                      }
+                      return;
+                    }
+                    setEditingCoin({ owner, coinType, minionIndex, label: `${ownerLabel} ${coinLabel}`, health: coin.health });
+                  }}
                   aria-label={`${ownerLabel} ${coinLabel} coin`}
                 >
-                  <img
-                    src={getCoinImage(characterId, coinType)}
-                    alt=""
-                    className={styles.coinImage}
-                    draggable={false}
-                  />
+                  {hasAlt ? (
+                    <div className={coin.altSide ? `${styles.coinInner} ${styles.coinFlipped}` : styles.coinInner}>
+                      <img
+                        src={getCoinImage(characterId, coinType)}
+                        alt=""
+                        className={styles.coinFace}
+                        draggable={false}
+                      />
+                      <img
+                        src={getCoinImage(characterId, coinType, 'alt')}
+                        alt=""
+                        className={`${styles.coinFace} ${styles.coinFaceAlt}`}
+                        draggable={false}
+                      />
+                    </div>
+                  ) : (
+                    <img
+                      src={getCoinImage(characterId, coinType)}
+                      alt=""
+                      className={styles.coinImage}
+                      draggable={false}
+                    />
+                  )}
                 </button>
                 <div
-                  className={`${styles.healthBadge} ${coinType === 'minion' ? styles.healthBadgeMinion : ''}`}
+                  className={styles.healthBadge}
                   style={{ left: `${pxX}px`, top: `${pxY}px` }}
                   aria-hidden="true"
                 >

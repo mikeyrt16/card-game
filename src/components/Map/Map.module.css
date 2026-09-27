@@ -30,28 +30,33 @@
   filter: brightness(0.5);
 }
 
+/* Deliberately no border-radius/background/box-shadow of its own — those
+   live on .coinImage (or .coinFace, for a flipping coin) instead, so that
+   flipping the disc (see .coinInner below) carries its whole visible
+   appearance with it rather than rotating an image inside a static frame.
+   This element is just the position/hit-box/perspective. */
 .coin {
   position: absolute;
   width: 101px;
   height: 101px;
   padding: 0;
   border: none;
-  border-radius: 50%;
-  overflow: hidden;
-  background: #111;
+  /* It's a <button> — without this, its default (square, OS-themed)
+     background shows through in the corners outside the circular disc
+     drawn by its children. */
+  background: none;
   transform: translate(-50%, -50%);
   cursor: grab;
   /* Stops the browser's own touch scroll/zoom gestures from competing with
      our pointer-event dragging on touchscreens. */
   touch-action: none;
-  box-shadow: 0 3px 10px rgba(0, 0, 0, 0.6);
-  transition: box-shadow 0.15s ease;
+  /* Only load-bearing for coins with alt art — gives .coinInner's flip
+     something to rotate through — but harmless to set on every coin. */
+  perspective: 600px;
+  /* This is a <button>; double-clicking it would otherwise leave a focus
+     ring parked on the coin afterwards. */
+  outline: none;
   z-index: 1;
-}
-
-.coinMinion {
-  width: 76px;
-  height: 76px;
 }
 
 .coinImage {
@@ -59,14 +64,59 @@
   height: 100%;
   object-fit: cover;
   display: block;
+  border-radius: 50%;
+  overflow: hidden;
+  background: #111;
+  box-shadow: 0 3px 10px rgba(0, 0, 0, 0.6);
+  transition: box-shadow 0.15s ease;
   pointer-events: none;
   user-select: none;
   -webkit-user-drag: none;
 }
 
+/* Only rendered in place of .coinImage for a coin whose character/coinType
+   has alt art (see hasCoinAltImage) — the shift+double-click flip. Same
+   two-face 3D-rotate technique as the board cards and Alice's coin. */
+.coinInner {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  transform-style: preserve-3d;
+  transition: transform 0.45s ease;
+}
+
+.coinFlipped {
+  transform: rotateY(180deg);
+}
+
+.coinFace {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  border-radius: 50%;
+  overflow: hidden;
+  background: #111;
+  box-shadow: 0 3px 10px rgba(0, 0, 0, 0.6);
+  transition: box-shadow 0.15s ease;
+  backface-visibility: hidden;
+  pointer-events: none;
+  user-select: none;
+  -webkit-user-drag: none;
+}
+
+.coinFaceAlt {
+  transform: rotateY(180deg);
+}
+
 /* --glow-rgb (space-separated "R G B") is set inline per-coin in Map.tsx to
-   match that coin's character color. */
-.coinGlowing {
+   match that coin's character color. Targets whichever element is actually
+   carrying the coin's own box-shadow (see the comment on .coin above) so
+   the glow rotates with a flipping coin instead of staying pinned to the
+   static hit-box. */
+.coinGlowing .coinImage,
+.coinGlowing .coinFace {
   box-shadow: 0 0 0 3px rgb(var(--glow-rgb) / 60%), 0 0 22px 8px rgb(var(--glow-rgb) / 65%);
 }
 
@@ -123,10 +173,6 @@
   opacity: 0;
   pointer-events: none;
   z-index: 2;
-}
-
-.healthBadgeMinion {
-  transform: translate(0, -58px);
 }
 
 .coin:hover + .healthBadge {
