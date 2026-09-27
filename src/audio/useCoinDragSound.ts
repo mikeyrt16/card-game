@@ -1,59 +1,106 @@
 import { useEffect, useRef } from 'react';
 import type { PlayerCoins, PlayerSlot } from '../shared/protocol';
+import { mapCoins } from './mapCoins';
 
-const SLOTS: PlayerSlot[] = ['player1', 'player2'];
+/** How far a held coin has to actually travel (in the same map-percentage
+ *  units its position is stored in) before it counts as being dragged rather
+ *  than merely clicked. A dead zone rather than any movement at all, because a
+ *  mouse routinely jitters a pixel or two during a click — and a click is
+ *  exactly what shift-clicking for the alt face or double-clicking for the
+ *  health dialog is. Roughly 8px on a typical screen: well under a coin's own
+ *  width, so any deliberate drag clears it immediately. */
+const DRAG_THRESHOLD_PERCENT = 0.5;
 
-/** Every coin's own dragged-or-not, keyed so it's stable across renders
- *  regardless of which coin is which — main plus each minion, both players'.
- *  `CoinState.draggedBy` is already public and shared (sent identically to
- *  both clients), so this needs no server-side tally of its own, the same way
- *  `GameStateView.darkness`'s own length drives the darkness-placed sound. */
-function flattenDragStates(coins: Record<PlayerSlot, PlayerCoins>): Record<string, boolean> {
-  const states: Record<string, boolean> = {};
-  for (const slot of SLOTS) {
-    const playerCoins = coins[slot];
-    states[`${slot}-main`] = playerCoins.main.draggedBy !== null;
-    playerCoins.minions.forEach((minion, i) => {
-      states[`${slot}-minion-${i}`] = minion.draggedBy !== null;
-    });
-  }
-  return states;
+/** Every coin's held-or-not and where it is — `draggedBy`/`x`/`y` are all
+ *  already public and shared, so see `mapCoins` for why this needs no
+ *  server-side tally of its own. */
+function snapshotCoins(coins: Record<PlayerSlot, PlayerCoins>) {
+  return mapCoins(coins, (coin) => ({ held: coin.draggedBy !== null, x: coin.x, y: coin.y }));
 }
 
-/** Plays a sound whenever any coin (either player's, main or minion) starts
- *  or stops being dragged — both screens then play it on the same broadcast,
- *  since dragged state is fully shared. Diffs every coin's own dragged flag
- *  against its previous broadcast rather than watching a single count: unlike
- *  the darkness/shuffle/deal tallies, "is a coin being dragged" can flip back
- *  and forth on the very same coin, so there's no single ever-climbing number
- *  to key off — a rise only tells you *some* coin started, never which one,
- *  so a coin already released could be miscounted as the one that just was.
+/** One coin currently being held: where it was when it was grabbed, and
+ *  whether it has since travelled far enough to count as a drag. */
+interface HeldCoin {
+  x: number;
+  y: number;
+  dragging: boolean;
+}
+
+/** Plays a sound when any coin (either player's, main or minion) is actually
+ *  dragged, and another when that drag is released — both screens play in step,
+ *  since held state and position are fully shared.
  *
- *  Joining a game already mid-drag stays silent, the same way the tally
- *  sounds don't replay history on arrival: the first render seeds
- *  `previousRef` with the state as it already is, so nothing reads as new.
+ *  Being *held* isn't enough to sound: every press on a coin holds it, so
+ *  shift-clicking for the alt face and double-clicking for the health dialog
+ *  would each bracket themselves in pick-up/put-down noise. So a hold only
+ *  becomes a drag once the coin has moved DRAG_THRESHOLD_PERCENT from where it
+ *  was grabbed, and a release only sounds if that happened. A press that never
+ *  moves the coin makes no sound at all, at either end.
  *
- *  `onDragStart`/`onDragEnd` are expected to be stable functions — module-
- *  level ones, not inline closures, which would re-run the effect on every
- *  render. */
+ *  Tracked per coin against the previous broadcast rather than off a single
+ *  count: unlike the darkness/shuffle/deal tallies, a coin can be picked up and
+ *  put down any number of times, so there's no ever-climbing number to key off
+ *  — a rise would say *some* coin started, never which one.
+ *
+ *  Joining a game already mid-drag stays silent, the same way the tally sounds
+ *  don't replay history on arrival: the first render seeds `previousRef` with
+ *  the state as it already is, so nothing reads as new.
+ *
+ *  `onDragStart`/`onDragEnd` are expected to be stable functions — module-level
+ *  ones, not inline closures, which would re-run the effect on every render. */
 export function useCoinDragSound(
   coins: Record<PlayerSlot, PlayerCoins>,
   onDragStart: () => void,
   onDragEnd: () => void,
 ): void {
-  const previousRef = useRef(flattenDragStates(coins));
+  const previousRef = useRef(snapshotCoins(coins));
+  const heldRef = useRef<Record<string, HeldCoin>>({});
 
   useEffect(() => {
-    const current = flattenDragStates(coins);
+    const current = snapshotCoins(coins);
     const previous = previousRef.current;
     previousRef.current = current;
-    for (const key of Object.keys(current)) {
-      const was = previous[key] ?? false;
-      const is = current[key];
-      if (!was && is) {
-        onDragStart();
-      } else if (was && !is) {
-        onDragEnd();
+    const held = heldRef.current;
+
+    for (const [key, now] of Object.entries(current)) {
+      const before = previous[key];
+      if (!before) {
+        // A coin that wasn't there last time (a newly spawned squirrel) — it
+        // has no previous state to have changed from.
+        continue;
+      }
+
+      if (now.held && !before.held) {
+        // Just grabbed. Anchored on where it sat *before* the grab, not where
+        // it is now, so a grab and its first move arriving in one batched
+        // update still reads as movement rather than resetting the anchor.
+        held[key] = { x: before.x, y: before.y, dragging: false };
+      }
+
+      const heldCoin = held[key];
+      if (now.held && heldCoin && !heldCoin.dragging) {
+        const travelled = Math.max(Math.abs(now.x - heldCoin.x), Math.abs(now.y - heldCoin.y));
+        if (travelled >= DRAG_THRESHOLD_PERCENT) {
+          heldCoin.dragging = true;
+          onDragStart();
+        }
+      }
+
+      if (!now.held && before.held) {
+        // Only a hold that actually became a drag gets a put-down — a plain
+        // click has nothing to put down.
+        if (heldCoin?.dragging) {
+          onDragEnd();
+        }
+        delete held[key];
+      }
+    }
+
+    // A coin that's gone entirely (minions rebuilt on a character re-pick)
+    // can never report its own release, so don't hold its entry forever.
+    for (const key of Object.keys(held)) {
+      if (!current[key]) {
+        delete held[key];
       }
     }
   }, [coins, onDragStart, onDragEnd]);

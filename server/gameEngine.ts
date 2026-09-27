@@ -60,6 +60,8 @@ interface ServerPlayerState {
   minionsResurrected: number;
   pilesShuffled: number;
   cardsPlaced: number;
+  coinsHealed: number;
+  coinsHit: number;
 }
 
 export interface GameState {
@@ -90,6 +92,8 @@ export function createEmptyPlayer(): ServerPlayerState {
     minionsResurrected: 0,
     pilesShuffled: 0,
     cardsPlaced: 0,
+    coinsHealed: 0,
+    coinsHit: 0,
   };
 }
 
@@ -478,6 +482,7 @@ function spawnSquirrelMinion(state: GameState, slot: PlayerSlot): void {
  *  non-finite value (a malformed message) is rejected. */
 function updateCoinHealth(
   state: GameState,
+  actorSlot: PlayerSlot,
   coinOwner: PlayerSlot,
   coinType: CoinType,
   minionIndex: number | undefined,
@@ -487,7 +492,25 @@ function updateCoinHealth(
   if (!coin || !Number.isFinite(health)) {
     return;
   }
-  coin.health = Math.round(health);
+  const next = Math.round(health);
+  if (next === coin.health) {
+    // Nothing actually changed, so nothing for either client to sound. The
+    // dialog already disables its own Update button in this case; this just
+    // means nothing else can sneak a no-op edit past it either.
+    return;
+  }
+  // Which way it went is what decides whether both clients play the heal or
+  // the hit. Counted against whoever made the edit rather than the coin's
+  // owner: either player can edit any coin, and it's the editor's doing.
+  // Deliberately only counted here, not wherever health happens to change —
+  // Willow's resurrect raises it too, and that has its own sound rather than
+  // also reading as a heal.
+  if (next > coin.health) {
+    state.players[actorSlot].coinsHealed += 1;
+  } else {
+    state.players[actorSlot].coinsHit += 1;
+  }
+  coin.health = next;
 }
 
 /** Like coin dragging/health, any player can flip a coin's face — the
@@ -626,7 +649,7 @@ export function applyAction(state: GameState, slot: PlayerSlot, action: GameActi
       endDragCoin(state, slot, action.coinOwner, action.coinType, action.minionIndex);
       return;
     case 'updateCoinHealth':
-      updateCoinHealth(state, action.coinOwner, action.coinType, action.minionIndex, action.health);
+      updateCoinHealth(state, slot, action.coinOwner, action.coinType, action.minionIndex, action.health);
       return;
     case 'toggleCoinAltSide':
       toggleCoinAltSide(state, action.coinOwner, action.coinType, action.minionIndex);
@@ -771,6 +794,8 @@ export function buildView(state: GameState, forSlot: PlayerSlot): GameStateView 
       minionsResurrected: me.minionsResurrected,
       pilesShuffled: me.pilesShuffled,
       cardsPlaced: me.cardsPlaced,
+      coinsHealed: me.coinsHealed,
+      coinsHit: me.coinsHit,
     },
     opponent: opponent.token
       ? {
@@ -787,6 +812,8 @@ export function buildView(state: GameState, forSlot: PlayerSlot): GameStateView 
           minionsResurrected: opponent.minionsResurrected,
           pilesShuffled: opponent.pilesShuffled,
           cardsPlaced: opponent.cardsPlaced,
+          coinsHealed: opponent.coinsHealed,
+          coinsHit: opponent.coinsHit,
         }
       : null,
   };

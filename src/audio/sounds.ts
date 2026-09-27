@@ -3,6 +3,8 @@ import cardDealSound from '../assets/sounds/card-3.mp3';
 import cardFlipSound from '../assets/sounds/card-flip.mp3';
 import cardShuffleSound from '../assets/sounds/card-shuffle.mp3';
 import darknessSound from '../assets/sounds/darkness.mp3';
+import healSound from '../assets/sounds/heal.mp3';
+import hitSound from '../assets/sounds/hit.mp3';
 import resurrectSound from '../assets/sounds/resurrect.mp3';
 import squeakSound1 from '../assets/sounds/squeak-1.mp3';
 import squeakSound2 from '../assets/sounds/squeak-2.mp3';
@@ -11,6 +13,7 @@ import squeakSound4 from '../assets/sounds/squeak-4.mp3';
 import squeakSound5 from '../assets/sounds/squeak-5.mp3';
 import thud from '../assets/sounds/thud.mp3';
 import takeIt from '../assets/sounds/take-it.mp3';
+import whoosh from '../assets/sounds/whoosh.mp3';
 
 /** A fresh Audio per call rather than one shared element per sound: two of the
  *  same sound close together (both players at once) then overlap instead of the
@@ -78,6 +81,26 @@ export function playCoinPickUpSound(): void {
  *  `playCoinPickUpSound`. */
 export function playCoinPutDownSound(): void {
   play(thud);
+}
+
+/** A coin being turned over to its alternate face, or back (shift + click).
+ *  Played on both players' screens — see `useCoinFlipSound`, which watches
+ *  `CoinState.altSide` for the change. Distinct from `playCardFlipSound`,
+ *  which is a *card* on the board being revealed. */
+export function playCoinFlipSound(): void {
+  play(whoosh);
+}
+
+/** A coin's health being edited upward. Played on both players' screens — see
+ *  `PlayerView.coinsHealed`, which is what triggers it. */
+export function playHealSound(): void {
+  play(healSound);
+}
+
+/** A coin's health being edited downward. Played on both players' screens —
+ *  see `PlayerView.coinsHit`, which is what triggers it. */
+export function playHitSound(): void {
+  play(hitSound);
 }
 
 /** One squeak, picked at random each call. Five recordings rather than one,

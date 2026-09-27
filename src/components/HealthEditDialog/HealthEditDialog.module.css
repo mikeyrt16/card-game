@@ -84,6 +84,14 @@
   color: #fff;
 }
 
-.updateButton:hover {
+.updateButton:not(:disabled):hover {
   background: #4a934a;
+}
+
+/* Until the value actually differs from the health the dialog opened on —
+   there'd be nothing to apply, and nothing for either player to hear. */
+.updateButton:disabled {
+  background: #3a3a3a;
+  color: rgba(255, 255, 255, 0.45);
+  cursor: default;
 }

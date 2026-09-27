@@ -271,6 +271,14 @@ export interface PlayerView {
    *  landing counts: sliding an existing board card around doesn't move
    *  this, nor does a drop the server otherwise rejected. */
   cardsPlaced: number;
+  /** How many coin health edits this player has made that raised the health,
+   *  and how many that lowered it — the two drive the heal and hit sounds on
+   *  both screens, exactly as `cardsDrawn` does for the deal. Counted against
+   *  the player who made the edit, not the coin's owner, since either player
+   *  can edit any coin. Only edits through the health dialog move these: an
+   *  edit to the same value is no change, and a resurrect has its own sound. */
+  coinsHealed: number;
+  coinsHit: number;
 }
 
 export interface GameStateView {

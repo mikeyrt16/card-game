@@ -5,13 +5,17 @@ import {
   playCardDealSound,
   playCardFlipSound,
   playCardShuffleSound,
+  playCoinFlipSound,
   playCoinPickUpSound,
   playCoinPutDownSound,
   playDarknessSound,
+  playHealSound,
+  playHitSound,
   playResurrectSound,
   playSquirrelSqueakSound,
 } from '../audio/sounds';
 import { useCoinDragSound } from '../audio/useCoinDragSound';
+import { useCoinFlipSound } from '../audio/useCoinFlipSound';
 import { useTallySound } from '../audio/useTallySound';
 import { SpikeDarknessButton } from '../components/SpikeDarknessButton/SpikeDarknessButton';
 import { SquirrelGirlButton } from '../components/SquirrelGirlButton/SquirrelGirlButton';
@@ -135,15 +139,20 @@ function Game({ state, character, map, send }: GameProps) {
   // Reuses the deal sound — one counter for both "onto the board" and "into
   // the discard pile" since either way it's the same sound.
   useTallySound(state.me.cardsPlaced, state.opponent?.cardsPlaced ?? null, playCardDealSound);
+  // Two counters rather than one: which way a health edit went is exactly what
+  // picks the sound, so the direction has to survive the trip.
+  useTallySound(state.me.coinsHealed, state.opponent?.coinsHealed ?? null, playHealSound);
+  useTallySound(state.me.coinsHit, state.opponent?.coinsHit ?? null, playHitSound);
   // Darkness has no separate per-player tally to pair up here — state.darkness
   // is already shared and only-grows (see playDarknessSound) — so it's passed
   // as the "mine" side alone, with "theirs" pinned to null so the hook's
   // opponent-side check can never itself trigger a second play of the same rise.
   useTallySound(state.darkness.length, null, playDarknessSound);
-  // Coin dragging isn't a tally — the same coin can start and stop being
-  // dragged any number of times — so this diffs draggedBy per coin instead
-  // of watching a count. See useCoinDragSound for why.
+  // Neither of these is a tally — the same coin can be picked up, put down and
+  // turned over any number of times — so they diff the coins' own shared state
+  // per coin instead of watching a count. See each hook for why.
   useCoinDragSound(state.coins, playCoinPickUpSound, playCoinPutDownSound);
+  useCoinFlipSound(state.coins, playCoinFlipSound);
 
   const visible = (cards: WireCard[]) => cards.filter((c) => c.id !== movingCardId).map(toClientCard);
   const hand = visible(state.me.hand);
