@@ -18,7 +18,14 @@
   cursor: pointer;
   box-shadow: 0 3px 10px rgba(0, 0, 0, 0.6);
   transition: box-shadow 0.15s ease, background 0.15s ease;
-  z-index: 50;
+  /* Under everything the draw pile puts in this space, which it shares: the
+     drag-time drop zone (55), which starts at this exact same bottom: 202px,
+     and the View/Shuffle hover menu, which opens into the gap just above the
+     pile. Deliberately not a tie with the piles (50) either: on equal z-index
+     the later element in the DOM wins, and these character buttons render
+     after the draw pile. Nothing is lost by sitting low — the piles
+     themselves stop ~28px below this. */
+  z-index: 45;
 }
 
 /* --glow-rgb is set inline, from the same per-character palette the coins'

@@ -18,7 +18,9 @@
   cursor: pointer;
   box-shadow: 0 3px 10px rgba(0, 0, 0, 0.6);
   transition: box-shadow 0.15s ease, background 0.15s ease;
-  z-index: 50;
+  /* Under what the draw pile puts in this shared space — its drag-time drop
+     zone (55) above all. See SquirrelGirlButton.module.css for the full why. */
+  z-index: 45;
 }
 
 /* --glow-rgb is set inline, from the same per-character palette the
