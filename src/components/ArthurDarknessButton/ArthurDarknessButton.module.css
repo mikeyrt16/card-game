@@ -19,8 +19,8 @@
   z-index: 50;
 }
 
-/* --glow-rgb is set inline, from the same per-character palette the coins
-   and their particles use. */
+/* --glow-rgb is set inline, from the same per-character palette the
+   coins' own glow uses. */
 .button:hover {
   background: rgba(30, 30, 30, 0.9);
   box-shadow: 0 0 0 3px rgb(var(--glow-rgb) / 60%), 0 0 22px 8px rgb(var(--glow-rgb) / 65%);

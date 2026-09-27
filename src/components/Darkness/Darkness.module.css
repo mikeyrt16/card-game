@@ -10,8 +10,7 @@
      drag, same as the coins. */
   touch-action: none;
   /* Under everything else on the board: the coins sit at 1, their health
-     badges at 2 and board cards at 3. Rendered before the coins' particle
-     fountains too, which share this depth, so those still read over it. */
+     badges at 2 and board cards at 3. */
   z-index: 0;
   border-radius: 50%;
 }

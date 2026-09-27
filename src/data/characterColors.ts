@@ -1,7 +1,7 @@
-/** Each character's signature color — drives their coin particle fountain,
- *  their coin's drag-glow, and anything else that should read as "themed to
- *  whichever character you picked" rather than a fixed app-wide accent.
- *  Falls back to the original gold if an unknown/no characterId is given. */
+/** Each character's signature color — drives their coin's drag-glow and
+ *  anything else that should read as "themed to whichever character you
+ *  picked" rather than a fixed app-wide accent. Falls back to the original
+ *  gold if an unknown/no characterId is given. */
 const CHARACTER_COLORS: Record<string, string> = {
   medusa: '#6FCF52',
   arthur: '#FF6F5E',
@@ -13,11 +13,11 @@ const CHARACTER_COLORS: Record<string, string> = {
 };
 const DEFAULT_COLOR = '#FFD54A';
 
-export function characterColorHex(characterId: string | null): string {
+function characterColorHex(characterId: string | null): string {
   return (characterId && CHARACTER_COLORS[characterId]) || DEFAULT_COLOR;
 }
 
-export function hexToRgb(hex: string): [number, number, number] {
+function hexToRgb(hex: string): [number, number, number] {
   const value = parseInt(hex.slice(1), 16);
   return [(value >> 16) & 255, (value >> 8) & 255, value & 255];
 }

@@ -22,7 +22,7 @@
   filter: brightness(1);
   transition: filter 0.3s ease;
   /* Explicit (rather than relying on z-index:auto's default stacking)
-     so it's unambiguously behind .particleField (0) and .coin (1). */
+     so it's unambiguously behind the darkness (0) and the coins (1). */
   z-index: -1;
 }
 
@@ -65,8 +65,7 @@
 }
 
 /* --glow-rgb (space-separated "R G B") is set inline per-coin in Map.tsx to
-   match that coin's character color — same source color as its particle
-   fountain, just wrapped for box-shadow use instead of a gradient. */
+   match that coin's character color. */
 .coinGlowing {
   box-shadow: 0 0 0 3px rgb(var(--glow-rgb) / 60%), 0 0 22px 8px rgb(var(--glow-rgb) / 65%);
 }
@@ -137,48 +136,3 @@
 /* Coins sit at 1 and their health badges at 2, both below the board cards
    at 3 (see BoardCard.module.css) — a card played onto the board covers
    the pieces rather than being hidden underneath them. */
-
-/* Ambient particle fountain rendered behind each coin (z-index below
-   .coin's 1) — an always-on flourish, not tied to drag/glow state. Its
-   color comes from --particle-core/--particle-mid/--particle-fade custom
-   properties set inline per-character (see Map.tsx), inherited down to the
-   .particle children below. */
-.particleField {
-  position: absolute;
-  width: 0;
-  height: 0;
-  transform: translate(-50%, -50%);
-  pointer-events: none;
-  z-index: 0;
-}
-
-.particle {
-  position: absolute;
-  left: 0;
-  top: 0;
-  width: var(--size);
-  height: var(--size);
-  margin-left: calc(var(--size) / -2);
-  margin-top: calc(var(--size) / -2);
-  border-radius: 50%;
-  background: radial-gradient(circle, var(--particle-core) 0%, var(--particle-mid) 45%, var(--particle-fade) 75%);
-  opacity: 0;
-  animation-name: particleBurst;
-  animation-duration: var(--duration);
-  animation-timing-function: ease-out;
-  animation-iteration-count: infinite;
-}
-
-@keyframes particleBurst {
-  0% {
-    transform: translate(0, 0) scale(1.6);
-    opacity: 0;
-  }
-  18% {
-    opacity: var(--peak-opacity);
-  }
-  100% {
-    transform: translate(var(--tx), var(--ty)) scale(0.3);
-    opacity: 0;
-  }
-}
