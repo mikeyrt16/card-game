@@ -28,11 +28,6 @@ const coinModules = import.meta.glob('../assets/coins/*/*.{png,jpg,jpeg,webp}', 
   import: 'default',
 }) as Record<string, string>;
 
-const specialModules = import.meta.glob('../assets/special/*/*.{png,jpg,jpeg,webp}', {
-  eager: true,
-  import: 'default',
-}) as Record<string, string>;
-
 function indexByCapture(modules: Record<string, string>, pattern: RegExp): Record<string, string> {
   const index: Record<string, string> = {};
   for (const [path, url] of Object.entries(modules)) {
@@ -56,7 +51,6 @@ const characterCardsByCharacter = indexByCapture(
 );
 const mapsBySlug = indexByCapture(mapModules, /\/maps\/([^/.]+)\.[^./]+$/);
 const coinsByKey = indexByCapture(coinModules, /\/coins\/([^/]+\/[^/.]+)\.[^./]+$/);
-const specialByKey = indexByCapture(specialModules, /\/special\/([^/]+\/[^/.]+)\.[^./]+$/);
 
 export function getCardImage(characterId: string, slug: string): string {
   const url = cardImagesByKey[`${characterId}/${slug}`];
@@ -141,11 +135,3 @@ export function hasCoinAltImage(characterId: string, coinType: 'main' | 'minion'
   return Boolean(coinsByKey[`${characterId}/${coinType}-alt`]);
 }
 
-/** A character's special-component art, e.g. `getSpecialImage('alice', 'big')`. */
-export function getSpecialImage(characterId: string, name: string): string {
-  const url = specialByKey[`${characterId}/${name}`];
-  if (!url) {
-    throw new Error(`Missing special image for ${characterId}/${name}`);
-  }
-  return url;
-}

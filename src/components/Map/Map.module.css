@@ -120,6 +120,14 @@
   box-shadow: 0 0 0 3px rgb(var(--glow-rgb) / 60%), 0 0 22px 8px rgb(var(--glow-rgb) / 65%);
 }
 
+/* Squirrel Girl's minions only (see the Map.tsx render loop) — everything
+   else about a coin (image, flip, glow) scales with it automatically, since
+   .coinImage/.coinFace are sized as 100% of this. */
+.coinSmall {
+  width: 50.5px;
+  height: 50.5px;
+}
+
 /* Plays once when health crosses to 0 or below (the class is only added at
    that point, so re-renders while dead don't replay it) then stays put via
    forwards fill — invisible and inert, which is what "removed from the map"
@@ -177,6 +185,12 @@
 
 .coin:hover + .healthBadge {
   opacity: 1;
+}
+
+/* Paired with .coinSmall, so the badge still sits just above the (shorter)
+   coin instead of floating the same fixed distance meant for a full-size one. */
+.healthBadgeSmall {
+  transform: translate(0, -47px);
 }
 
 /* Coins sit at 1 and their health badges at 2, both below the board cards

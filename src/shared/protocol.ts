@@ -72,6 +72,16 @@ export const SHADOW_TOKEN_LIMIT = 3;
  *  resurrection is a reprieve rather than a reset. */
 export const RESURRECTED_MINION_HEALTH = 3;
 
+/** How many squirrel minions Squirrel Girl gets for the whole game, one at a
+ *  time via `spawnSquirrelMinion`. Unlike every other character, her
+ *  CharacterDef.minionCount is 0 — she starts with none, and the server
+ *  enforces this as the cap on how many the button can add; the client reads
+ *  it to count down the button's label and hide it once she's spawned them
+ *  all. Since nothing removes a spawned minion, coins.minions.length is
+ *  exactly how many she's used, the same way SHADOW_TOKEN_LIMIT works off
+ *  darkness.length. */
+export const SQUIRREL_GIRL_MINION_LIMIT = 8;
+
 /** A patch of darkness Spike has put on the map. Positioned in the same
  *  shared percentage-of-the-map frame the coins use, so both players agree
  *  on where it is however their screen is sized or oriented. Permanent once
@@ -158,11 +168,10 @@ export type GameAction =
    *  specific move by a specific character, which lets the server hold it to
    *  those rules and lets both clients sound it. */
   | { type: 'resurrectMinion'; minionIndex: number }
-  /** Flips Alice's special-component coin between small and big. `owner`
-   *  identifies whose coin (i.e. whichever slot picked Alice) — like coin
-   *  dragging, either player can trigger it, since it's rendered (mirrored)
-   *  on both screens. A no-op if that slot isn't currently playing Alice. */
-  | { type: 'toggleAliceCoin'; owner: PlayerSlot }
+  /** Squirrel Girl adding one more squirrel minion, at 1 health, up to
+   *  `SQUIRREL_GIRL_MINION_LIMIT` for the whole game. Squirrel Girl's own, so
+   *  a no-op from anyone else — and a no-op once she's spawned the limit. */
+  | { type: 'spawnSquirrelMinion' }
   /** Reports where the sender's own mouse is, so the other player can see
    *  it. Sent throttled to one update per animation frame while the mouse
    *  is moving. */
@@ -224,9 +233,6 @@ export interface PlayerView {
   drawPileCount: number;
   /** Discard piles are public information. */
   discardPile: WireCard[];
-  /** Alice's special-component coin state (big vs. small) — meaningless
-   *  (stays false) for any other character. See `toggleAliceCoin`. */
-  aliceCoinBig: boolean;
   /** This player's own mouse position, or null until they've moved it (and
    *  again once they disconnect). Public — each player draws the other's. */
   cursor: CursorPosition | null;

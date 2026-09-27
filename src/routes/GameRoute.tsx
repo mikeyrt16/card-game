@@ -9,8 +9,8 @@ import {
   playResurrectSound,
 } from '../audio/sounds';
 import { useTallySound } from '../audio/useTallySound';
-import { AliceCoin } from '../components/AliceCoin/AliceCoin';
 import { SpikeDarknessButton } from '../components/SpikeDarknessButton/SpikeDarknessButton';
+import { SquirrelGirlButton } from '../components/SquirrelGirlButton/SquirrelGirlButton';
 import { WillowResurrectButton } from '../components/WillowResurrectButton/WillowResurrectButton';
 import { CardPile } from '../components/CardPile/CardPile';
 import { PileDropZone, type PilePosition } from '../components/PileDropZone/PileDropZone';
@@ -29,7 +29,7 @@ import { characterGlowRgb } from '../data/characterColors';
 import { getCharacter, type Character } from '../data/characters';
 import { MAPS, type MapInfo } from '../data/maps';
 import { useGameConnection } from '../net/GameConnectionProvider';
-import { SHADOW_TOKEN_LIMIT } from '../shared/protocol';
+import { SHADOW_TOKEN_LIMIT, SQUIRREL_GIRL_MINION_LIMIT } from '../shared/protocol';
 import type { GameAction, GameStateView, PlayerSlot, WireCard } from '../shared/protocol';
 import styles from './GameRoute.module.css';
 
@@ -150,7 +150,6 @@ function Game({ state, character, map, send }: GameProps) {
   const viewsInverseMap = state.mySlot === 'player2';
 
   const opponent = state.opponent;
-  const opponentSlot: PlayerSlot = state.mySlot === 'player1' ? 'player2' : 'player1';
   const opponentCharacter = opponent?.characterId ? getCharacter(opponent.characterId) : undefined;
   const opponentDiscardPile = opponent ? opponent.discardPile.map(toClientCard) : [];
   const opponentCardBack = opponentCharacter?.cardBack ?? character.cardBack;
@@ -328,6 +327,10 @@ function Game({ state, character, map, send }: GameProps) {
   // the minion; Willow has just the one today, but this doesn't assume it.
   const deadMinionIndex = state.coins[state.mySlot].minions.findIndex((minion) => minion.health <= 0);
 
+  // How many squirrel minions Squirrel Girl has spawned so far — what her own
+  // button counts down against and disappears at (see SQUIRREL_GIRL_MINION_LIMIT).
+  const mySquirrelMinionCount = state.coins[state.mySlot].minions.length;
+
   const handleDropOntoHand = (cardId: string, index: number) => {
     setIsDragActive(false);
     setDraggedCard(null);
@@ -402,13 +405,6 @@ function Game({ state, character, map, send }: GameProps) {
         onClick={() => {}}
         disabled
       />
-      {opponentCharacter?.id === 'alice' && (
-        <AliceCoin
-          mirrored
-          big={opponent?.aliceCoinBig ?? false}
-          onToggle={() => send({ type: 'toggleAliceCoin', owner: opponentSlot })}
-        />
-      )}
       {!isViewingOpponentDiscard && (
         <CardPile
           count={opponentDiscardPile.length}
@@ -475,17 +471,10 @@ function Game({ state, character, map, send }: GameProps) {
           }}
         />
       )}
-      {character.id === 'alice' && (
-        <AliceCoin
-          mirrored={false}
-          big={state.me.aliceCoinBig}
-          onToggle={() => send({ type: 'toggleAliceCoin', owner: state.mySlot })}
-        />
-      )}
-      {/* A control rather than a piece, so unlike Alice's coin it's only
-          drawn for Spike himself — what it places is the shared part. Goes
-          away entirely once all three are down: nothing removes a placed
-          token, so the board's own count is how many he's spent. */}
+      {/* A control rather than a piece, so it's only drawn for Spike himself —
+          what it places is the shared part. Goes away entirely once all three
+          are down: nothing removes a placed token, so the board's own count
+          is how many he's spent. */}
       {character.id === 'spike' && state.darkness.length < SHADOW_TOKEN_LIMIT && (
         <SpikeDarknessButton
           remaining={SHADOW_TOKEN_LIMIT - state.darkness.length}
@@ -497,6 +486,16 @@ function Game({ state, character, map, send }: GameProps) {
           only while it's down and goes on its own once it's back up. */}
       {character.id === 'willow' && deadMinionIndex !== -1 && (
         <WillowResurrectButton onResurrect={() => handleResurrectMinion(deadMinionIndex)} />
+      )}
+      {/* Squirrel Girl's equivalent, in the same spot above her draw pile.
+          Nothing removes a spawned minion, so — like the shadow tokens —
+          her own coin count is exactly how many she's used, and the button
+          goes away entirely once all of them are down. */}
+      {character.id === 'squirrelGirl' && mySquirrelMinionCount < SQUIRREL_GIRL_MINION_LIMIT && (
+        <SquirrelGirlButton
+          remaining={SQUIRREL_GIRL_MINION_LIMIT - mySquirrelMinionCount}
+          onSpawnMinion={() => send({ type: 'spawnSquirrelMinion' })}
+        />
       )}
       {!isViewingDiscard && (
         <CardPile

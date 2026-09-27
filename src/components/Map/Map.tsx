@@ -531,12 +531,22 @@ export function Map({
             const coinLabel =
               minionIndex !== undefined && playerCoins.minions.length > 1 ? `minion ${minionIndex + 1}` : coinType;
             const hasAlt = hasCoinAltImage(characterId, coinType);
+            // Squirrel Girl's minions render at half size — she can end up
+            // with up to SQUIRREL_GIRL_MINION_LIMIT of them, unlike every
+            // other character's one or few, so they read as a swarm rather
+            // than crowding the board at full coin size.
+            const isSmall = coinType === 'minion' && characterId === 'squirrelGirl';
 
             return (
               <Fragment key={`${owner}-${coinType}-${minionIndex ?? 0}`}>
                 <button
                   type="button"
-                  className={[styles.coin, isGlowing && styles.coinGlowing, isDead && styles.coinDead]
+                  className={[
+                    styles.coin,
+                    isSmall && styles.coinSmall,
+                    isGlowing && styles.coinGlowing,
+                    isDead && styles.coinDead,
+                  ]
                     .filter(Boolean)
                     .join(' ')}
                   style={
@@ -590,7 +600,7 @@ export function Map({
                   )}
                 </button>
                 <div
-                  className={styles.healthBadge}
+                  className={isSmall ? `${styles.healthBadge} ${styles.healthBadgeSmall}` : styles.healthBadge}
                   style={{ left: `${pxX}px`, top: `${pxY}px` }}
                   aria-hidden="true"
                 >

@@ -1,6 +1,8 @@
-/* Sits above the player's own draw pile, the same spot Alice's coin takes
-   (CardPile's .placementDraw: left 32px, width 110px, bottom 20px, ~154px
-   tall) — centred on that 110px pile, clearing its top edge by 28px. */
+/* Sits above the player's own draw pile, the same spot Willow's resurrect
+   button and Squirrel Girl's own button take (CardPile's .placementDraw:
+   left 32px, width 110px, bottom 20px, ~154px tall) — centred on that 110px
+   pile, clearing its top edge by 28px. Only one of the three is ever on
+   screen at once, since a player only has the one character. */
 .button {
   position: fixed;
   left: 32px;

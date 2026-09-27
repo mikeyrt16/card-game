@@ -1,5 +1,5 @@
 import { getCharacterDef } from '../src/shared/characters';
-import { RESURRECTED_MINION_HEALTH, SHADOW_TOKEN_LIMIT } from '../src/shared/protocol';
+import { RESURRECTED_MINION_HEALTH, SHADOW_TOKEN_LIMIT, SQUIRREL_GIRL_MINION_LIMIT } from '../src/shared/protocol';
 import type {
   BoardCardView,
   CoinState,
@@ -41,9 +41,6 @@ interface ServerPlayerState {
    *  a live view. Stored on the player who gets to *look*, so it can only
    *  ever be sent to them. */
   revealedHand: WireCard[];
-  /** Alice's special-component coin — see `toggleAliceCoin`. Unused (stays
-   *  false) for every other character. */
-  aliceCoinBig: boolean;
   /** Last reported mouse position, for the other player to draw. Cleared on
    *  disconnect so a ghost cursor can't linger. */
   cursor: CursorPosition | null;
@@ -84,7 +81,6 @@ export function createEmptyPlayer(): ServerPlayerState {
     hand: [],
     boardCards: [],
     revealedHand: [],
-    aliceCoinBig: false,
     cursor: null,
     handOpen: false,
     draggedCard: null,
@@ -101,16 +97,20 @@ function coinXForSlot(slot: PlayerSlot): number {
   return slot === 'player1' ? 15 : 85;
 }
 
-/** Lays out `count` minion coins stacked vertically, centered on the same
- *  spot the single minion coin used to occupy — so one minion looks
- *  identical to before, and more minions fan out from that same center
- *  rather than needing separate per-count layouts. */
+const MINION_SPACING = 10;
+
+/** Where the `index`-th of `total` fanned minion coins sits, stacked
+ *  vertically and centered on the same spot the single minion coin used to
+ *  occupy — so one minion looks identical to before, and more minions fan out
+ *  from that same center rather than needing separate per-count layouts. */
+function minionCoinPosition(x: number, index: number, total: number): { x: number; y: number } {
+  const startY = 58 - ((total - 1) * MINION_SPACING) / 2;
+  return { x, y: startY + index * MINION_SPACING };
+}
+
 function createMinionCoins(x: number, count: number, health: number): CoinState[] {
-  const spacing = 10;
-  const startY = 58 - ((count - 1) * spacing) / 2;
   return Array.from({ length: count }, (_, i) => ({
-    x,
-    y: startY + i * spacing,
+    ...minionCoinPosition(x, i, count),
     draggedBy: null,
     health,
     altSide: false,
@@ -231,9 +231,6 @@ function selectCharacter(state: GameState, slot: PlayerSlot, characterId: string
   player.discardPile = [];
   player.boardCards = [];
   player.revealedHand = [];
-  // Always starts small, whether newly picking Alice or switching away from
-  // (and potentially back to) her.
-  player.aliceCoinBig = false;
   // Different characters field different numbers of minions, and different
   // starting health for both main and minion coins — apply all of that now
   // that the character is known. Re-centers minions on the same spot
@@ -337,7 +334,6 @@ function resetPlayerToCharacterSelect(player: ServerPlayerState): void {
   player.hand = [];
   player.boardCards = [];
   player.revealedHand = [];
-  player.aliceCoinBig = false;
   // token/connected are identity, not game progress — left untouched.
 }
 
@@ -432,6 +428,25 @@ function resurrectMinion(state: GameState, slot: PlayerSlot, minionIndex: number
   state.players[slot].minionsResurrected += 1;
 }
 
+/** Squirrel Girl adding one more squirrel minion. Squirrel Girl only, and
+ *  only up to SQUIRREL_GIRL_MINION_LIMIT for the whole game — past that this
+ *  is a no-op, same as the shadow tokens once Spike's spent his three. The
+ *  new coin lands in its own slot of the full eventual fan (computed against
+ *  the limit, not the current count), so earlier minions that have since been
+ *  dragged elsewhere aren't reshuffled by a later spawn. */
+function spawnSquirrelMinion(state: GameState, slot: PlayerSlot): void {
+  if (state.players[slot].characterId !== 'squirrelGirl') {
+    return;
+  }
+  const coins = state.coins[slot];
+  if (coins.minions.length >= SQUIRREL_GIRL_MINION_LIMIT) {
+    return;
+  }
+  const health = getCharacterDef('squirrelGirl')?.minionHealth ?? 1;
+  const position = minionCoinPosition(coinXForSlot(slot), coins.minions.length, SQUIRREL_GIRL_MINION_LIMIT);
+  coins.minions = [...coins.minions, { ...position, draggedBy: null, health, altSide: false }];
+}
+
 /** Like coin dragging, anyone can edit any coin's health — it's a shared HP
  *  tracker, not gated to the coin's own player. 0 or below is allowed
  *  through (that's what marks the coin dead on the client); only a
@@ -522,14 +537,6 @@ function moveCursor(player: ServerPlayerState, x: number, y: number): void {
   player.cursor = { x: Math.max(0, Math.min(100, x)), y: Math.max(0, Math.min(100, y)) };
 }
 
-function toggleAliceCoin(state: GameState, owner: PlayerSlot): void {
-  const player = state.players[owner];
-  if (player.characterId !== 'alice') {
-    return;
-  }
-  player.aliceCoinBig = !player.aliceCoinBig;
-}
-
 export function applyAction(state: GameState, slot: PlayerSlot, action: GameAction): void {
   const player = state.players[slot];
   switch (action.type) {
@@ -598,8 +605,8 @@ export function applyAction(state: GameState, slot: PlayerSlot, action: GameActi
     case 'resurrectMinion':
       resurrectMinion(state, slot, action.minionIndex);
       return;
-    case 'toggleAliceCoin':
-      toggleAliceCoin(state, action.owner);
+    case 'spawnSquirrelMinion':
+      spawnSquirrelMinion(state, slot);
       return;
     case 'moveCursor':
       moveCursor(player, action.x, action.y);
@@ -727,7 +734,6 @@ export function buildView(state: GameState, forSlot: PlayerSlot): GameStateView 
       discardPile: me.discardPile,
       hand: me.hand,
       revealedHand: me.revealedHand,
-      aliceCoinBig: me.aliceCoinBig,
       cursor: me.cursor,
       handOpen: me.handOpen,
       draggedCard: buildDraggedCardView(me),
@@ -743,7 +749,6 @@ export function buildView(state: GameState, forSlot: PlayerSlot): GameStateView 
           drawPileCount: opponent.drawPile.length,
           discardPile: opponent.discardPile,
           handCount: opponent.hand.length,
-          aliceCoinBig: opponent.aliceCoinBig,
           cursor: opponent.cursor,
           handOpen: opponent.handOpen,
           draggedCard: buildDraggedCardView(opponent),

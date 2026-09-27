@@ -17,7 +17,11 @@ export const CHARACTER_DEFS: CharacterDef[] = [
   { id: 'alice', name: 'Alice', cards: alice, minionCount: 1, mainHealth: 13, minionHealth: 8 },
   { id: 'medusa', name: 'Medusa', cards: medusa, minionCount: 3, mainHealth: 16, minionHealth: 1 },
   { id: 'sinbad', name: 'Sinbad', cards: sinbad, minionCount: 1, mainHealth: 15, minionHealth: 6 },
-  { id: 'squirrelGirl', name: 'Squirrel Girl', cards: squirrelGirl, minionCount: 8, mainHealth: 13, minionHealth: 1 },
+  // Unlike every other character, her minions aren't pre-placed: she starts
+  // with none and spawns up to SQUIRREL_GIRL_MINION_LIMIT one at a time via
+  // her own button (see spawnSquirrelMinion). minionHealth still applies to
+  // each one spawned.
+  { id: 'squirrelGirl', name: 'Squirrel Girl', cards: squirrelGirl, minionCount: 0, mainHealth: 13, minionHealth: 1 },
   { id: 'houdini', name: 'Houdini', cards: houdini, minionCount: 1, mainHealth: 14, minionHealth: 5 },
   { id: 'genie', name: 'Genie', cards: genie, minionCount: 0, mainHealth: 16, minionHealth: 0 },
   { id: 'buffy', name: 'Buffy', cards: buffy, minionCount: 1, mainHealth: 14, minionHealth: 6 },
