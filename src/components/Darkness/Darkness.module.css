@@ -3,7 +3,12 @@
   width: 160px;
   height: 160px;
   opacity: 0.85;
-  /* Centred on its point, the same way the coins are. */
+  /* Centred on its point, the same way the coins are. Load-bearing for both
+     players agreeing on where a patch is: left/top are its centre, and the
+     player on the 180°-rotated map has their offsets flipped, so positioning
+     this by its corner instead would put it a marker's width away from where
+     the other player sees it. Hence the slow spin lives on .image below, not
+     here — an animated transform would replace this one outright. */
   transform: translate(-50%, -50%);
   cursor: grab;
   /* Stops the browser's own touch scroll/zoom gestures competing with the
@@ -13,10 +18,14 @@
      badges at 2 and board cards at 3. */
   z-index: 0;
   border-radius: 50%;
-  animation: rotate 20s linear infinite;
-  transform-origin: center center;
 }
 
+.darkness:active {
+  cursor: grabbing;
+}
+
+/* The drift of the smoke. Rotating the image rather than its wrapper spins it
+   about the same centre while leaving the wrapper's centring translate alone. */
 @keyframes rotate {
   from {
     transform: rotate(0deg);
@@ -26,15 +35,13 @@
   }
 }
 
-.darkness:active {
-  cursor: grabbing;
-}
-
 .image {
   width: 100%;
   height: 100%;
   object-fit: contain;
   display: block;
+  animation: rotate 20s linear infinite;
+  transform-origin: center center;
   pointer-events: none;
   user-select: none;
   -webkit-user-drag: none;
