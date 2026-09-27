@@ -11,6 +11,7 @@ import { getCardBackImage, getCardImage, getCoinImage, hasCoinAltImage } from '.
 import { characterGlowRgb } from '../../data/characterColors';
 import type { CardData } from '../../data/cards';
 import { BoardCard } from '../BoardCard/BoardCard';
+import { CoinHealthChange } from '../CoinHealthChange/CoinHealthChange';
 import { Darkness } from '../Darkness/Darkness';
 import { draggedCardCentre } from '../DragPreview/draggedCardCentre';
 import { HealthEditDialog } from '../HealthEditDialog/HealthEditDialog';
@@ -25,6 +26,24 @@ import type {
 import styles from './Map.module.css';
 
 const SLOTS: PlayerSlot[] = ['player1', 'player2'];
+
+/** Stable identity for one coin — main plus each minion, both players' — used
+ *  both as its React key and to remember things per coin between renders. */
+function coinKey(owner: PlayerSlot, coinType: CoinType, minionIndex: number | undefined): string {
+  return `${owner}-${coinType}-${minionIndex ?? 0}`;
+}
+
+/** Every coin's running count of health edits, keyed by `coinKey`. */
+function healthEditCounts(coins: Record<PlayerSlot, PlayerCoins>): Record<string, number> {
+  const counts: Record<string, number> = {};
+  for (const owner of SLOTS) {
+    counts[coinKey(owner, 'main', undefined)] = coins[owner].main.healthEditCount;
+    coins[owner].minions.forEach((minion, i) => {
+      counts[coinKey(owner, 'minion', i)] = minion.healthEditCount;
+    });
+  }
+  return counts;
+}
 
 interface LocalDrag {
   owner: PlayerSlot;
@@ -195,6 +214,13 @@ export function Map({
   // instead of snapping its center to the pointer.
   const grabOffsetRef = useRef<{ x: number; y: number }>({ x: 0, y: 0 });
   const [editingCoin, setEditingCoin] = useState<EditingCoin | null>(null);
+  // Each coin's edit count as it stood when this board first came on screen.
+  // The floating number animates on being mounted, so without a baseline every
+  // coin already carrying an edit would flash its last one on arrival — on a
+  // mid-game refresh, say. Only counts that climb past this are edits that
+  // happened while we were watching. Lazily initialised, so this is the state
+  // at mount and never recomputed.
+  const [initialHealthEditCounts] = useState(() => healthEditCounts(coins));
   // Which board card is in hand right now, so it can be hidden while the
   // drag preview stands in for it. Local to the map: it's purely about what
   // this screen draws, and it keeps the drag's start and end side by side.
@@ -536,9 +562,14 @@ export function Map({
             // other character's one or few, so they read as a swarm rather
             // than crowding the board at full coin size.
             const isSmall = coinType === 'minion' && characterId === 'squirrelGirl';
+            const key = coinKey(owner, coinType, minionIndex);
+            // Shown only for an edit made since this board came on screen. A
+            // coin that's only just appeared (a spawned squirrel) has no
+            // baseline, and starts on 0 edits anyway.
+            const showHealthChange = coin.healthEditCount > (initialHealthEditCounts[key] ?? 0);
 
             return (
-              <Fragment key={`${owner}-${coinType}-${minionIndex ?? 0}`}>
+              <Fragment key={key}>
                 <button
                   type="button"
                   className={[
@@ -610,6 +641,12 @@ export function Map({
                 >
                   {coin.health}
                 </div>
+                {/* Keyed on the edit count, so each new edit mounts a fresh one
+                    and replays its animation rather than leaving the last one
+                    sitting there spent. */}
+                {showHealthChange && (
+                  <CoinHealthChange key={coin.healthEditCount} delta={coin.healthEditDelta} left={pxX} top={pxY} />
+                )}
               </Fragment>
             );
           });

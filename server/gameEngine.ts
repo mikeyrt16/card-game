@@ -114,13 +114,19 @@ function minionCoinPosition(x: number, index: number, total: number): { x: numbe
   return { x, y: startY + index * MINION_SPACING };
 }
 
+/** A coin as it starts life: sitting where it's put, free rather than held,
+ *  original face up, and never yet health-edited. The one place every coin's
+ *  full shape is spelled out, so a new field on `CoinState` doesn't have to be
+ *  remembered at each of the spots that make one. */
+function createCoin(x: number, y: number, health: number): CoinState {
+  return { x, y, draggedBy: null, health, altSide: false, healthEditDelta: 0, healthEditCount: 0 };
+}
+
 function createMinionCoins(x: number, count: number, health: number): CoinState[] {
-  return Array.from({ length: count }, (_, i) => ({
-    ...minionCoinPosition(x, i, count),
-    draggedBy: null,
-    health,
-    altSide: false,
-  }));
+  return Array.from({ length: count }, (_, i) => {
+    const { x: minionX, y: minionY } = minionCoinPosition(x, i, count);
+    return createCoin(minionX, minionY, health);
+  });
 }
 
 /** How far out (in the same map-percentage units everything else here uses)
@@ -149,11 +155,11 @@ function squirrelMinionSpawnPosition(main: { x: number; y: number }, index: numb
 function createInitialCoins(): Record<PlayerSlot, PlayerCoins> {
   return {
     player1: {
-      main: { x: coinXForSlot('player1'), y: 45, draggedBy: null, health: 1, altSide: false },
+      main: createCoin(coinXForSlot('player1'), 45, 1),
       minions: createMinionCoins(coinXForSlot('player1'), 1, 1),
     },
     player2: {
-      main: { x: coinXForSlot('player2'), y: 45, draggedBy: null, health: 1, altSide: false },
+      main: createCoin(coinXForSlot('player2'), 45, 1),
       minions: createMinionCoins(coinXForSlot('player2'), 1, 1),
     },
   };
@@ -473,7 +479,7 @@ function spawnSquirrelMinion(state: GameState, slot: PlayerSlot): void {
   }
   const health = getCharacterDef('squirrelGirl')?.minionHealth ?? 1;
   const position = squirrelMinionSpawnPosition(coins.main, coins.minions.length);
-  coins.minions = [...coins.minions, { ...position, draggedBy: null, health, altSide: false }];
+  coins.minions = [...coins.minions, createCoin(position.x, position.y, health)];
 }
 
 /** Like coin dragging, anyone can edit any coin's health — it's a shared HP
@@ -510,6 +516,10 @@ function updateCoinHealth(
   } else {
     state.players[actorSlot].coinsHit += 1;
   }
+  // What the floating number over the coin reads, and what marks it as a fresh
+  // edit rather than a rebroadcast of this one — see `CoinState`.
+  coin.healthEditDelta = next - coin.health;
+  coin.healthEditCount += 1;
   coin.health = next;
 }
 

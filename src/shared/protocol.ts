@@ -32,6 +32,15 @@ export interface CoinState {
    *  character/coinType with alt art (see `hasCoinAltImage`) — flipped via
    *  `toggleCoinAltSide`, always starting false. */
   altSide: boolean;
+  /** By how much this coin's health last changed through `updateCoinHealth`,
+   *  and a count of those edits that only ever climbs. Together they drive the
+   *  floating number both players see rise off the coin: the delta is what it
+   *  reads, and a rise in the count is what makes it a *new* one rather than a
+   *  rebroadcast of the same edit — the client keys the element on the count,
+   *  so each edit remounts it and replays its animation. `healthEditCount` at
+   *  0 means never edited, and nothing is shown. */
+  healthEditDelta: number;
+  healthEditCount: number;
 }
 
 /** One player's coins — a single main coin plus however many minion coins
