@@ -135,7 +135,7 @@ interface MapProps {
   onCoinMove: (owner: PlayerSlot, coinType: CoinType, minionIndex: number | undefined, x: number, y: number) => void;
   onCoinDragEnd: (owner: PlayerSlot, coinType: CoinType, minionIndex: number | undefined) => void;
   onUpdateCoinHealth: (owner: PlayerSlot, coinType: CoinType, minionIndex: number | undefined, health: number) => void;
-  /** Shift + double-click on a coin with alt art — never sent otherwise. */
+  /** Shift + click on a coin with alt art — never sent otherwise. */
   onToggleCoinAltSide: (owner: PlayerSlot, coinType: CoinType, minionIndex: number | undefined) => void;
   /** A card was dropped on open board — either newly played out of a hand
    *  or pile, or one already lying here being slid somewhere else. */
@@ -561,14 +561,18 @@ export function Map({
                   onPointerMove={handlePointerMove(owner, coinType, minionIndex)}
                   onPointerUp={endLocalDrag(owner, coinType, minionIndex)}
                   onPointerCancel={endLocalDrag(owner, coinType, minionIndex)}
+                  onClick={(e) => {
+                    // Shift + click is reserved for the alt-side flip — a
+                    // no-op for a coin with no alt art to flip to.
+                    if (e.shiftKey && hasAlt) {
+                      onToggleCoinAltSide(owner, coinType, minionIndex);
+                    }
+                  }}
                   onDoubleClick={(e) => {
-                    // Shift + double-click is reserved for the alt-side
-                    // flip — it never falls through to the health dialog,
-                    // even for a coin with no alt art to flip to.
+                    // Shift is reserved for the click-based flip above — a
+                    // shift + double-click (two shift-clicks in quick
+                    // succession) must never also open the health dialog.
                     if (e.shiftKey) {
-                      if (hasAlt) {
-                        onToggleCoinAltSide(owner, coinType, minionIndex);
-                      }
                       return;
                     }
                     setEditingCoin({ owner, coinType, minionIndex, label: `${ownerLabel} ${coinLabel}`, health: coin.health });

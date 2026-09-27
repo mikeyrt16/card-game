@@ -159,7 +159,7 @@ export type GameAction =
   | { type: 'updateCoinHealth'; coinOwner: PlayerSlot; coinType: CoinType; minionIndex?: number; health: number }
   /** Flips a coin to its alternate face (or back). Like coin dragging/health,
    *  any player can trigger it — the client only offers the gesture (shift +
-   *  double-click) when that character/coinType actually has alt art. */
+   *  click) when that character/coinType actually has alt art. */
   | { type: 'toggleCoinAltSide'; coinOwner: PlayerSlot; coinType: CoinType; minionIndex?: number }
   /** Willow bringing her own fallen minion back, on
    *  `RESURRECTED_MINION_HEALTH`. Only the sender's own minion, only Willow's,
