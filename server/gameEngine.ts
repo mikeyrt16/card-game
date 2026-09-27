@@ -59,6 +59,7 @@ interface ServerPlayerState {
   boardCardsFlipped: number;
   minionsResurrected: number;
   pilesShuffled: number;
+  cardsPlaced: number;
 }
 
 export interface GameState {
@@ -88,6 +89,7 @@ export function createEmptyPlayer(): ServerPlayerState {
     boardCardsFlipped: 0,
     minionsResurrected: 0,
     pilesShuffled: 0,
+    cardsPlaced: 0,
   };
 }
 
@@ -286,6 +288,9 @@ function dropOnDiscardPile(player: ServerPlayerState, cardId: string, position: 
   }
   removeCardEverywhere(player, cardId);
   player.discardPile = insertAtPosition(player.discardPile, withNewId(card), position);
+  // Counted only now the drop has actually landed — the not-found bail above
+  // leaves it alone, so no client plays a sound for nothing.
+  player.cardsPlaced += 1;
 }
 
 function dropOntoHand(player: ServerPlayerState, cardId: string, index: number): void {
@@ -513,6 +518,10 @@ function dropCardOnBoard(player: ServerPlayerState, cardId: string, x: number, y
     ...player.boardCards,
     { card: withNewId(card), x: clampedX, y: clampedY, faceUp: false },
   ];
+  // Only for a card actually newly landing here — the reposition branch
+  // above (an existing board card just being slid about) returns before
+  // this, so dragging one around the board doesn't replay the sound.
+  player.cardsPlaced += 1;
 }
 
 /** Turning a card face up is one-way. Not theirs to turn over at all if it
@@ -741,6 +750,7 @@ export function buildView(state: GameState, forSlot: PlayerSlot): GameStateView 
       boardCardsFlipped: me.boardCardsFlipped,
       minionsResurrected: me.minionsResurrected,
       pilesShuffled: me.pilesShuffled,
+      cardsPlaced: me.cardsPlaced,
     },
     opponent: opponent.token
       ? {
@@ -756,6 +766,7 @@ export function buildView(state: GameState, forSlot: PlayerSlot): GameStateView 
           boardCardsFlipped: opponent.boardCardsFlipped,
           minionsResurrected: opponent.minionsResurrected,
           pilesShuffled: opponent.pilesShuffled,
+          cardsPlaced: opponent.cardsPlaced,
         }
       : null,
   };

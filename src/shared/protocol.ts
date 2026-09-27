@@ -265,6 +265,12 @@ export interface PlayerView {
    *  for the deal — one counter for both piles, since both play the same
    *  sound. */
   pilesShuffled: number;
+  /** How many cards this player has placed onto the board or into their
+   *  discard pile, combined into one counter since both play the same sound
+   *  — exactly as `cardsDrawn` does for the deal. Only a card actually newly
+   *  landing counts: sliding an existing board card around doesn't move
+   *  this, nor does a drop the server otherwise rejected. */
+  cardsPlaced: number;
 }
 
 export interface GameStateView {
