@@ -60,7 +60,7 @@ export interface GameState {
   phase: GamePhase;
   selectedMapId: string | null;
   coins: Record<PlayerSlot, PlayerCoins>;
-  /** Kept at game level rather than on Arthur's player, like the coins:
+  /** Kept at game level rather than on Spike's player, like the coins:
    *  once placed it's shared furniture either player can move or clear. */
   darkness: DarknessView[];
   players: Record<PlayerSlot, ServerPlayerState>;
@@ -551,9 +551,9 @@ export function applyAction(state: GameState, slot: PlayerSlot, action: GameActi
       player.revealedHand = [];
       return;
     case 'addDarkness':
-      // Arthur's to place. Lands mid-map, to be dragged wherever it's
+      // Spike's to place. Lands mid-map, to be dragged wherever it's
       // wanted from there.
-      if (player.characterId === 'arthur') {
+      if (player.characterId === 'spike') {
         state.darkness = [...state.darkness, { id: crypto.randomUUID(), x: 50, y: 50 }];
       }
       return;

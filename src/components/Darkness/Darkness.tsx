@@ -14,7 +14,7 @@ interface DarknessProps {
   onRemove: () => void;
 }
 
-/** A patch of Arthur's darkness sitting on the map. Slid about with pointer
+/** A patch of Spike's darkness sitting on the map. Slid about with pointer
  *  events, exactly as the coins are, and double-clicked away. Either player
  *  can do both — once placed it's shared furniture. */
 export function Darkness({ left, top, onPointerDown, onPointerMove, onPointerUp, onPointerCancel, onRemove }: DarknessProps) {

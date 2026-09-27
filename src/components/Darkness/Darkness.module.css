@@ -13,6 +13,17 @@
      badges at 2 and board cards at 3. */
   z-index: 0;
   border-radius: 50%;
+  animation: rotate 20s linear infinite;
+  transform-origin: center center;
+}
+
+@keyframes rotate {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 .darkness:active {

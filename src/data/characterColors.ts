@@ -10,6 +10,10 @@ const CHARACTER_COLORS: Record<string, string> = {
   squirrelGirl: '#F7932D',
   houdini: '#4CC402',
   genie: '#E641E8',
+  buffy: '#fc387a',
+  angel: '#EECC40',
+  willow: '#4fd1c5',
+  spike: '#424cc2',
 };
 const DEFAULT_COLOR = '#FFD54A';
 

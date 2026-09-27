@@ -409,3 +409,215 @@ export const genie: CardDefinition[] = [
     "image": "your-wish-is-my-command"
   },
 ];
+
+export const buffy: CardDefinition[] = [
+  {
+    "amount": 2,
+    "image": "cartwheel-kick"
+  },
+  {
+    "amount": 3,
+    "image": "daring-strike"
+  },
+  {
+    "amount": 3,
+    "image": "feint"
+  },
+  {
+    "amount": 3,
+    "image": "insight"
+  },
+  {
+    "amount": 3,
+    "image": "military-knowledge"
+  },
+  {
+    "amount": 2,
+    "image": "mr-pointy"
+  },
+  {
+    "amount": 3,
+    "image": "rapid-recovery"
+  },
+  {
+    "amount": 3,
+    "image": "regroup"
+  },
+  {
+    "amount": 2,
+    "image": "right-hand-man"
+  },
+  {
+    "amount": 3,
+    "image": "skirmish"
+  },
+  {
+    "amount": 3,
+    "image": "slayers-strength"
+  },
+  {
+    "amount": 3,
+    "image": "swift-strike"
+  },
+  {
+    "amount": 2,
+    "image": "training"
+  },
+];
+
+export const willow: CardDefinition[] = [
+  {
+    "amount": 3,
+    "image": "black-magic"
+  },
+  {
+    "amount": 3,
+    "image": "feint"
+  },
+  {
+    "amount": 3,
+    "image": "flayed-alive"
+  },
+  {
+    "amount": 2,
+    "image": "hacker"
+  },
+  {
+    "amount": 2,
+    "image": "knowledge-of-the-craft"
+  },
+  {
+    "amount": 2,
+    "image": "love-and-loss"
+  },
+  {
+    "amount": 2,
+    "image": "meditation"
+  },
+  {
+    "amount": 3,
+    "image": "regroup"
+  },
+  {
+    "amount": 2,
+    "image": "rending-shot"
+  },
+  {
+    "amount": 2,
+    "image": "resurrect"
+  },
+  {
+    "amount": 2,
+    "image": "revoke"
+  },
+  {
+    "amount": 2,
+    "image": "swift-strike"
+  },
+  {
+    "amount": 2,
+    "image": "when-good-magic-fails"
+  },
+];
+
+export const angel: CardDefinition[] = [
+  {
+    "amount": 3,
+    "image": "angelus-scourge-of-europe"
+  },
+  {
+    "amount": 2,
+    "image": "brooding"
+  },
+  {
+    "amount": 2,
+    "image": "cursed-with-a-soul"
+  },
+  {
+    "amount": 3,
+    "image": "disengage"
+  },
+  {
+    "amount": 3,
+    "image": "feint"
+  },
+  {
+    "amount": 2,
+    "image": "five-by-five"
+  },
+  {
+    "amount": 2,
+    "image": "haunted-by-the-faces"
+  },
+  {
+    "amount": 3,
+    "image": "killer-of-the-dead"
+  },
+  {
+    "amount": 3,
+    "image": "momentous-shift"
+  },
+  {
+    "amount": 3,
+    "image": "regroup"
+  },
+  {
+    "amount": 2,
+    "image": "the-rogue-slayer"
+  },
+  {
+    "amount": 2,
+    "image": "wisdom-of-ages"
+  },
+];
+
+export const spike: CardDefinition[] = [
+  {
+    "amount": 3,
+    "image": "always-surprising"
+  },
+  {
+    "amount": 1,
+    "image": "arrogance"
+  },
+  {
+    "amount": 3,
+    "image": "bloody-hell"
+  },
+  {
+    "amount": 2,
+    "image": "empathy"
+  },
+  {
+    "amount": 3,
+    "image": "feint"
+  },
+  {
+    "amount": 2,
+    "image": "leap-away"
+  },
+  {
+    "amount": 3,
+    "image": "lets-dance"
+  },
+  {
+    "amount": 3,
+    "image": "regroup"
+  },
+  {
+    "amount": 4,
+    "image": "seek-the-shadows"
+  },
+  {
+    "amount": 2,
+    "image": "skirmish"
+  },
+  {
+    "amount": 2,
+    "image": "the-rush"
+  },
+  {
+    "amount": 2,
+    "image": "the-sight"
+  },
+];

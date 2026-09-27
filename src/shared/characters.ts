@@ -1,4 +1,4 @@
-import { type CardDefinition, medusa, sinbad, arthur, alice, squirrelGirl, houdini, genie } from './cards';
+import { type CardDefinition, medusa, sinbad, arthur, alice, squirrelGirl, houdini, genie, buffy, angel, willow, spike } from './cards';
 
 export interface CharacterDef {
   id: string;
@@ -20,6 +20,10 @@ export const CHARACTER_DEFS: CharacterDef[] = [
   { id: 'squirrelGirl', name: 'Squirrel Girl', cards: squirrelGirl, minionCount: 0, mainHealth: 13, minionHealth: 1 },
   { id: 'houdini', name: 'Houdini', cards: houdini, minionCount: 1, mainHealth: 14, minionHealth: 5 },
   { id: 'genie', name: 'Genie', cards: genie, minionCount: 0, mainHealth: 16, minionHealth: 0 },
+  { id: 'buffy', name: 'Buffy', cards: buffy, minionCount: 1, mainHealth: 14, minionHealth: 6 },
+  { id: 'angel', name: 'Angel', cards: angel, minionCount: 1, mainHealth: 16, minionHealth: 8 },
+  { id: 'willow', name: 'Willow', cards: willow, minionCount: 1, mainHealth: 14, minionHealth: 6 },
+  { id: 'spike', name: 'Spike', cards: spike, minionCount: 1, mainHealth: 15, minionHealth: 7 },
 ];
 
 export function getCharacterDef(id: string): CharacterDef | undefined {

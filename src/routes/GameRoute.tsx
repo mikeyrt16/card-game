@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { Navigate } from 'react-router-dom';
 import { AliceCoin } from '../components/AliceCoin/AliceCoin';
-import { ArthurDarknessButton } from '../components/ArthurDarknessButton/ArthurDarknessButton';
+import { SpikeDarknessButton } from '../components/SpikeDarknessButton/SpikeDarknessButton';
 import { CardPile } from '../components/CardPile/CardPile';
 import { PileDropZone, type PilePosition } from '../components/PileDropZone/PileDropZone';
 import { PlayerHand } from '../components/PlayerHand/PlayerHand';
@@ -435,9 +435,9 @@ function Game({ state, character, map, send }: GameProps) {
         />
       )}
       {/* A control rather than a piece, so unlike Alice's coin it's only
-          drawn for Arthur himself — what it places is the shared part. */}
-      {character.id === 'arthur' && (
-        <ArthurDarknessButton onAddDarkness={() => send({ type: 'addDarkness' })} />
+          drawn for Spike himself — what it places is the shared part. */}
+      {character.id === 'spike' && (
+        <SpikeDarknessButton onAddDarkness={() => send({ type: 'addDarkness' })} />
       )}
       {!isViewingDiscard && (
         <CardPile
