@@ -468,7 +468,10 @@ export function Map({
               faceUp={boardCard.faceUp}
               backImage={backImage}
               frontImage={frontImage}
-              canFlip={isMine}
+              // Revealing is one-way, so a card that's already up offers no
+              // double-click at all rather than one that does nothing.
+              canFlip={isMine && !boardCard.faceUp}
+              canDrag={isMine}
               isDragging={draggingBoardCardId === boardCard.id}
               onFlip={() => onFlipBoardCard(boardCard.id)}
               // What's dragged is whichever side is showing, so a card kept

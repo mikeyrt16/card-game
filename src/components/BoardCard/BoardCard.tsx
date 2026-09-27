@@ -16,6 +16,9 @@ interface BoardCardProps {
   frontImage: string | null;
   /** Only the player who put the card down may turn it over. */
   canFlip: boolean;
+  /** Likewise, only they can move it — the other player's cards are theirs
+   *  to look at, not to rearrange. */
+  canDrag: boolean;
   /** Hides this card while the drag preview is standing in for it, so the
    *  two aren't on screen at once. */
   isDragging: boolean;
@@ -40,6 +43,7 @@ export function BoardCard({
   backImage,
   frontImage,
   canFlip,
+  canDrag,
   isDragging,
   onFlip,
   onDragStart,
@@ -63,9 +67,11 @@ export function BoardCard({
 
   return (
     <div
-      className={isDragging ? `${styles.card} ${styles.dragging}` : styles.card}
+      className={[styles.card, isDragging && styles.dragging, !canDrag && styles.fixed]
+        .filter(Boolean)
+        .join(' ')}
       style={{ left: `${left}px`, top: `${top}px` }}
-      draggable
+      draggable={canDrag}
       onDragStart={handleDragStart}
       // Hiding this card is deliberately left until `drag` rather than done
       // in `dragStart` above: restyling the drag source during dragstart

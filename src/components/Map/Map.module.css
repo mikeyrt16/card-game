@@ -134,6 +134,10 @@
   opacity: 1;
 }
 
+/* Coins sit at 1 and their health badges at 2, both below the board cards
+   at 3 (see BoardCard.module.css) — a card played onto the board covers
+   the pieces rather than being hidden underneath them. */
+
 /* Ambient particle fountain rendered behind each coin (z-index below
    .coin's 1) — an always-on flourish, not tied to drag/glow state. Its
    color comes from --particle-core/--particle-mid/--particle-fade custom

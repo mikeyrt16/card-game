@@ -432,13 +432,16 @@ function dropCardOnBoard(player: ServerPlayerState, cardId: string, x: number, y
   ];
 }
 
+/** Turning a card face up is one-way. Not theirs to turn over at all if it
+ *  isn't in their own board cards, and once it's up it stays up — the
+ *  opponent has seen it, so putting it back face down would only pretend
+ *  otherwise. */
 function flipBoardCard(player: ServerPlayerState, cardId: string): void {
   const placed = player.boardCards.find((b) => b.card.id === cardId);
-  if (!placed) {
-    // Not theirs to turn over — only whoever put it down can.
+  if (!placed || placed.faceUp) {
     return;
   }
-  placed.faceUp = !placed.faceUp;
+  placed.faceUp = true;
 }
 
 function moveCursor(player: ServerPlayerState, x: number, y: number): void {

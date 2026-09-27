@@ -9,13 +9,21 @@
   cursor: grab;
   /* Gives the two faces something to rotate through. */
   perspective: 900px;
-  /* Beneath the coins, which are rendered after these and share this
-     depth — a card lies on the board, the pieces sit on top of it. */
-  z-index: 1;
+  /* Above the coins and their health badges (1 and 2 in Map.module.css) —
+     they're rendered after these, so sharing a depth would have let them
+     paint over the cards. */
+  z-index: 3;
 }
 
 .card:active {
   cursor: grabbing;
+}
+
+/* Someone else's card: there to be looked at, not picked up, so it doesn't
+   advertise a grab it won't honour. */
+.fixed,
+.fixed:active {
+  cursor: default;
 }
 
 /* Hidden, never unmounted: the drag preview is standing in for this card,
