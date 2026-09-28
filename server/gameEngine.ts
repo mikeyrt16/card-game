@@ -1,5 +1,10 @@
 import { getCharacterDef } from '../src/shared/characters';
-import { RESURRECTED_MINION_HEALTH, SHADOW_TOKEN_LIMIT, SQUIRREL_GIRL_MINION_LIMIT } from '../src/shared/protocol';
+import {
+  CAT_DANCE_MS,
+  RESURRECTED_MINION_HEALTH,
+  SHADOW_TOKEN_LIMIT,
+  SQUIRREL_GIRL_MINION_LIMIT,
+} from '../src/shared/protocol';
 import type {
   BoardCardView,
   CoinState,
@@ -71,6 +76,12 @@ export interface GameState {
   /** Kept at game level rather than on Spike's player, like the coins:
    *  once placed it's shared furniture either player can move or clear. */
   darkness: DarknessView[];
+  /** How many cat dances have run, and when the current one started — the
+   *  count is what both clients watch (see `GameStateView.catDanceCount`), and
+   *  the timestamp is purely the server's own gate against retriggering. Kept
+   *  at game level since either player sets it off and both see it. */
+  catDanceCount: number;
+  catDanceStartedAt: number;
   players: Record<PlayerSlot, ServerPlayerState>;
 }
 
@@ -171,6 +182,8 @@ export function createInitialState(): GameState {
     selectedMapId: null,
     coins: createInitialCoins(),
     darkness: [],
+    catDanceCount: 0,
+    catDanceStartedAt: 0,
     players: { player1: createEmptyPlayer(), player2: createEmptyPlayer() },
   };
 }
@@ -376,6 +389,8 @@ function returnToMainMenu(state: GameState): void {
   state.selectedMapId = null;
   state.coins = createInitialCoins();
   state.darkness = [];
+  state.catDanceCount = 0;
+  state.catDanceStartedAt = 0;
   resetPlayerToCharacterSelect(state.players.player1);
   resetPlayerToCharacterSelect(state.players.player2);
 }
@@ -670,6 +685,20 @@ export function applyAction(state: GameState, slot: PlayerSlot, action: GameActi
     case 'spawnSquirrelMinion':
       spawnSquirrelMinion(state, slot);
       return;
+    case 'startCatDance': {
+      // Held here rather than on each client so the gate is one gate: two
+      // players hitting shift+C at the same moment, or one leaning on it, get
+      // the single dance that's already playing rather than restarting it or
+      // stacking a second. Anyone may set it off — it's nobody's character
+      // ability, just the pair of them mucking about.
+      const now = Date.now();
+      if (now - state.catDanceStartedAt < CAT_DANCE_MS) {
+        return;
+      }
+      state.catDanceStartedAt = now;
+      state.catDanceCount += 1;
+      return;
+    }
     case 'moveCursor':
       moveCursor(player, action.x, action.y);
       return;
@@ -784,6 +813,7 @@ export function buildView(state: GameState, forSlot: PlayerSlot): GameStateView 
     selectedMapId: state.selectedMapId,
     coins: state.coins,
     darkness: state.darkness,
+    catDanceCount: state.catDanceCount,
     boardCards: [
       ...buildBoardCardViews(state.players.player1, 'player1', forSlot),
       ...buildBoardCardViews(state.players.player2, 'player2', forSlot),

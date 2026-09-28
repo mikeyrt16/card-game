@@ -1,0 +1,53 @@
+/* Over the entire game: the dragged card (200) and the dialogs (100) are the
+   highest things otherwise, and this goes above the lot. Click-through, so a
+   dance can't interrupt whatever either player was in the middle of doing.
+   animation-duration comes in inline from CAT_DANCE_MS. */
+.overlay {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
+  z-index: 1000;
+  animation-name: catVisit;
+  animation-timing-function: ease-out;
+  animation-fill-mode: forwards;
+}
+
+.cat {
+  height: 400px;
+  width: auto;
+  /* Its own shadow, so it reads as sitting above the board rather than being
+     part of it. */
+  filter: drop-shadow(0 12px 30px rgba(0, 0, 0, 0.7));
+  user-select: none;
+  -webkit-user-drag: none;
+}
+
+/* Pops in, holds for most of the run, then fades out — and *ends* hidden,
+   which is what lets the element simply be left mounted afterwards instead of
+   needing to be cleaned up. Percentages rather than seconds so the whole thing
+   scales with whatever CAT_DANCE_MS says. */
+@keyframes catVisit {
+  0% {
+    opacity: 0;
+    transform: scale(0.7);
+  }
+  8% {
+    opacity: 1;
+    transform: scale(1.06);
+  }
+  14% {
+    transform: scale(1);
+  }
+  80% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  100% {
+    opacity: 0;
+    transform: scale(0.95);
+    visibility: hidden;
+  }
+}

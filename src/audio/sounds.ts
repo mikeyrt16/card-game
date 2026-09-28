@@ -5,6 +5,7 @@ import cardShuffleSound from '../assets/sounds/card-shuffle.mp3';
 import darknessSound from '../assets/sounds/darkness.mp3';
 import healSound from '../assets/sounds/heal.mp3';
 import hitSound from '../assets/sounds/hit.mp3';
+import meowSound from '../assets/sounds/meow.mp3';
 import resurrectSound from '../assets/sounds/resurrect.mp3';
 import squeakSound1 from '../assets/sounds/squeak-1.mp3';
 import squeakSound2 from '../assets/sounds/squeak-2.mp3';
@@ -101,6 +102,12 @@ export function playHealSound(): void {
  *  see `PlayerView.coinsHit`, which is what triggers it. */
 export function playHitSound(): void {
   play(hitSound);
+}
+
+/** The dancing cat's arrival (shift + C). Played on both players' screens —
+ *  see `GameStateView.catDanceCount`, which is what triggers it. */
+export function playMeowSound(): void {
+  play(meowSound);
 }
 
 /** One squeak, picked at random each call. Five recordings rather than one,

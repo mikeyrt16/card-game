@@ -10,6 +10,7 @@ import {
   playCoinPutDownSound,
   playDarknessSound,
   playHealSound,
+  playMeowSound,
   playHitSound,
   playResurrectSound,
   playSquirrelSqueakSound,
@@ -21,6 +22,7 @@ import { SpikeDarknessButton } from '../components/SpikeDarknessButton/SpikeDark
 import { SquirrelGirlButton } from '../components/SquirrelGirlButton/SquirrelGirlButton';
 import { WillowResurrectButton } from '../components/WillowResurrectButton/WillowResurrectButton';
 import { CardPile } from '../components/CardPile/CardPile';
+import { CatDance } from '../components/CatDance/CatDance';
 import { PileDropZone, type PilePosition } from '../components/PileDropZone/PileDropZone';
 import { PlayerHand } from '../components/PlayerHand/PlayerHand';
 import { ConfirmDialog } from '../components/ConfirmDialog/ConfirmDialog';
@@ -148,6 +150,9 @@ function Game({ state, character, map, send }: GameProps) {
   // as the "mine" side alone, with "theirs" pinned to null so the hook's
   // opponent-side check can never itself trigger a second play of the same rise.
   useTallySound(state.darkness.length, null, playDarknessSound);
+  // Same shape as darkness: a single shared count, so it's the "mine" side with
+  // "theirs" pinned to null.
+  useTallySound(state.catDanceCount, null, playMeowSound);
   // Neither of these is a tally — the same coin can be picked up, put down and
   // turned over any number of times — so they diff the coins' own shared state
   // per coin instead of watching a count. See each hook for why.
@@ -221,6 +226,34 @@ function Game({ state, character, map, send }: GameProps) {
   useEffect(() => {
     send({ type: 'setHandOpen', open: isHandOpen });
   }, [isHandOpen, send]);
+
+  // Shift + C sets the dancing cat off on both screens. Fired on every press,
+  // with no local check for one already playing: the server holds that gate
+  // (see `startCatDance`), so it's one gate for both players rather than two
+  // that could disagree.
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      // Shift alone — ctrl/cmd/alt + shift + C are the browser's own (devtools,
+      // among others), and shouldn't put a cat up as a side effect.
+      if (!e.shiftKey || e.ctrlKey || e.metaKey || e.altKey || e.key.toLowerCase() !== 'c') {
+        return;
+      }
+      // Holding the keys down auto-repeats; the server would refuse every one
+      // of those anyway, so don't spend the socket on them.
+      if (e.repeat) {
+        return;
+      }
+      // Never while typing — the health dialog's field is the one place to
+      // worry about, but this holds for anything text-like.
+      const target = e.target as HTMLElement | null;
+      if (target?.isContentEditable || target instanceof HTMLInputElement || target instanceof HTMLTextAreaElement) {
+        return;
+      }
+      send({ type: 'startCatDance' });
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [send]);
 
   // Mirror our own mouse over to the opponent. Coalesced to one send per
   // animation frame, the same way coin dragging is, so a fast mouse can't
@@ -350,6 +383,12 @@ function Game({ state, character, map, send }: GameProps) {
   // How many squirrel minions Squirrel Girl has spawned so far — what her own
   // button counts down against and disappears at (see SQUIRREL_GIRL_MINION_LIMIT).
   const mySquirrelMinionCount = state.coins[state.mySlot].minions.length;
+
+  // The count as it stood when this board came on screen. CatDance animates on
+  // being mounted, so without a baseline every dance already on the tally
+  // would replay on arrival — on a mid-game refresh, say. Lazily initialised,
+  // so it's the count at mount and never recomputed.
+  const [initialCatDanceCount] = useState(() => state.catDanceCount);
 
   const handleDropOntoHand = (cardId: string, index: number) => {
     setIsDragActive(false);
@@ -672,6 +711,10 @@ function Game({ state, character, map, send }: GameProps) {
           onClose={() => setViewingCharacterCard(null)}
         />
       )}
+      {/* Keyed on the count, so each new dance mounts a fresh cat and replays
+          its animation rather than leaving the last one sitting there spent.
+          Only for dances set off since this board came on screen. */}
+      {state.catDanceCount > initialCatDanceCount && <CatDance key={state.catDanceCount} />}
     </div>
   );
 }

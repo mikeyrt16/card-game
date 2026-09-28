@@ -91,6 +91,12 @@ export const RESURRECTED_MINION_HEALTH = 3;
  *  darkness.length. */
 export const SQUIRREL_GIRL_MINION_LIMIT = 8;
 
+/** How long the cat dance stays on screen. The server holds off any further
+ *  trigger for this long (so it can't be restarted or stacked while it's
+ *  playing), and the client runs its show-then-hide animation over exactly the
+ *  same span — hence a shared constant rather than a number in each. */
+export const CAT_DANCE_MS = 2000;
+
 /** A patch of darkness Spike has put on the map. Positioned in the same
  *  shared percentage-of-the-map frame the coins use, so both players agree
  *  on where it is however their screen is sized or oriented. Permanent once
@@ -181,6 +187,10 @@ export type GameAction =
    *  `SQUIRREL_GIRL_MINION_LIMIT` for the whole game. Squirrel Girl's own, so
    *  a no-op from anyone else — and a no-op once she's spawned the limit. */
   | { type: 'spawnSquirrelMinion' }
+  /** Shift + C from either player: puts the dancing cat up on both screens.
+   *  A no-op while one is already playing — the server holds the gate, so two
+   *  players hitting it at once still get the one dance. */
+  | { type: 'startCatDance' }
   /** Reports where the sender's own mouse is, so the other player can see
    *  it. Sent throttled to one update per animation frame while the mouse
    *  is moving. */
@@ -307,6 +317,13 @@ export interface GameStateView {
   boardCards: BoardCardView[];
   /** Spike's patches of darkness, shared and public like the coins. */
   darkness: DarknessView[];
+  /** How many cat dances have been set off all game (see `startCatDance`).
+   *  Only ever climbs, and a rise is what puts the cat on screen and plays the
+   *  meow — a counter rather than an "is it playing" flag for the same reason
+   *  `PlayerView.cardsDrawn` is one: state is rebroadcast constantly, so a flag
+   *  would have to be cleared and would end up missed or replayed. How long it
+   *  then stays up is the client's own business (see `CAT_DANCE_MS`). */
+  catDanceCount: number;
   /** The receiving player's own board — hand and the draw pile's actual
    *  contents are only ever sent to their owner, for a deliberate "look
    *  through your deck" view; the opponent's stay hidden as counts. */
