@@ -18,9 +18,7 @@ import {
 import { useCoinDragSound } from '../audio/useCoinDragSound';
 import { useCoinFlipSound } from '../audio/useCoinFlipSound';
 import { useTallySound } from '../audio/useTallySound';
-import { SpikeDarknessButton } from '../components/SpikeDarknessButton/SpikeDarknessButton';
-import { SquirrelGirlButton } from '../components/SquirrelGirlButton/SquirrelGirlButton';
-import { WillowResurrectButton } from '../components/WillowResurrectButton/WillowResurrectButton';
+import { CharacterActionButton } from '../components/CharacterActionButton/CharacterActionButton';
 import { CardPile } from '../components/CardPile/CardPile';
 import { CatDance } from '../components/CatDance/CatDance';
 import { PileDropZone, type PilePosition } from '../components/PileDropZone/PileDropZone';
@@ -375,14 +373,17 @@ function Game({ state, character, map, send }: GameProps) {
     send({ type: 'resurrectMinion', minionIndex });
   };
 
-  // Which of my own minions is down, if any — what puts Willow's resurrect
-  // button on screen. findIndex rather than a boolean since the action names
-  // the minion; Willow has just the one today, but this doesn't assume it.
-  const deadMinionIndex = state.coins[state.mySlot].minions.findIndex((minion) => minion.health <= 0);
+  // My own fallen minions: which one to bring back (the action names a single
+  // minion, so the first down is the one a click revives), and how many are
+  // down in total. Willow only ever has the one, but Yennenga has two archers
+  // and her button reads the count, so neither assumes a number.
+  const myMinions = state.coins[state.mySlot].minions;
+  const deadMinionIndex = myMinions.findIndex((minion) => minion.health <= 0);
+  const deadMinionCount = myMinions.filter((minion) => minion.health <= 0).length;
 
   // How many squirrel minions Squirrel Girl has spawned so far — what her own
   // button counts down against and disappears at (see SQUIRREL_GIRL_MINION_LIMIT).
-  const mySquirrelMinionCount = state.coins[state.mySlot].minions.length;
+  const mySquirrelMinionCount = myMinions.length;
 
   // The count as it stood when this board came on screen. CatDance animates on
   // being mounted, so without a baseline every dance already on the tally
@@ -530,33 +531,50 @@ function Game({ state, character, map, send }: GameProps) {
           }}
         />
       )}
-      {/* A control rather than a piece, so it's only drawn for Spike himself —
-          what it places is the shared part. Goes away entirely once all three
-          are down: nothing removes a placed token, so the board's own count
-          is how many he's spent. */}
+      {/* Each character's own control, all sharing the one slot above their
+          draw pile — only one can ever be on screen, since a player has only
+          the one character. Each decides for itself when it's worth showing.
+
+          Spike's goes away entirely once all three tokens are down: nothing
+          removes a placed one, so the board's own count is how many he's spent. */}
       {character.id === 'spike' && state.darkness.length < SHADOW_TOKEN_LIMIT && (
-        <SpikeDarknessButton
-          remaining={SHADOW_TOKEN_LIMIT - state.darkness.length}
-          onAddDarkness={() => send({ type: 'addDarkness' })}
+        <CharacterActionButton
+          characterId="spike"
+          label={`Shadow Token (${SHADOW_TOKEN_LIMIT - state.darkness.length})`}
+          onClick={() => send({ type: 'addDarkness' })}
         />
       )}
-      {/* Willow's equivalent, in the same spot above her draw pile, and drawn
-          only for her — the opponent doesn't get to raise her minion. Appears
-          only while it's down and goes on its own once it's back up. */}
+      {/* Willow's shows only while her minion is down, and goes on its own
+          once it's back up — the opponent never gets to raise it. */}
       {character.id === 'willow' && deadMinionIndex !== -1 && (
-        <WillowResurrectButton onResurrect={() => handleResurrectMinion(deadMinionIndex)} />
+        <CharacterActionButton
+          characterId="willow"
+          label="Resurrect"
+          onClick={() => handleResurrectMinion(deadMinionIndex)}
+        />
       )}
-      {/* Squirrel Girl's equivalent, in the same spot above her draw pile.
-          Nothing removes a spawned minion, so — like the shadow tokens —
-          her own coin count is exactly how many she's used, and the button
-          goes away entirely once all of them are down. */}
+      {/* Squirrel Girl's counts down as she spawns: nothing removes a spawned
+          minion, so — like the shadow tokens — her own coin count is exactly
+          how many she's used, and it disappears once they're all out. */}
       {character.id === 'squirrelGirl' && mySquirrelMinionCount < SQUIRREL_GIRL_MINION_LIMIT && (
-        <SquirrelGirlButton
-          remaining={SQUIRREL_GIRL_MINION_LIMIT - mySquirrelMinionCount}
-          onSpawnMinion={() => {
+        <CharacterActionButton
+          characterId="squirrelGirl"
+          label={`Squirrel (${SQUIRREL_GIRL_MINION_LIMIT - mySquirrelMinionCount})`}
+          onClick={() => {
             playSquirrelSqueakSound();
             send({ type: 'spawnSquirrelMinion' });
           }}
+        />
+      )}
+      {/* Yennenga's counts her *fallen* archers rather than a dwindling
+          allowance — it appears as they die, ticks down as she brings them
+          back one per click, and disappears once both are standing again.
+          There's no limit over the game: it returns every time one falls. */}
+      {character.id === 'yennenga' && deadMinionCount > 0 && (
+        <CharacterActionButton
+          characterId="yennenga"
+          label={`Add archer (x${deadMinionCount})`}
+          onClick={() => handleResurrectMinion(deadMinionIndex)}
         />
       )}
       {!isViewingDiscard && (

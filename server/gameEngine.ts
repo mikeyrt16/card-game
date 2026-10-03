@@ -1,10 +1,5 @@
 import { getCharacterDef } from '../src/shared/characters';
-import {
-  CAT_DANCE_MS,
-  RESURRECTED_MINION_HEALTH,
-  SHADOW_TOKEN_LIMIT,
-  SQUIRREL_GIRL_MINION_LIMIT,
-} from '../src/shared/protocol';
+import { CAT_DANCE_MS, SHADOW_TOKEN_LIMIT, SQUIRREL_GIRL_MINION_LIMIT } from '../src/shared/protocol';
 import type {
   BoardCardView,
   CoinState,
@@ -459,19 +454,24 @@ function endDragCoin(
   }
 }
 
-/** Willow's minion coming back. Unlike the open `updateCoinHealth` below,
- *  this is one character's specific move, so it's held to it: Willow only,
- *  her own minion only, and only one that's actually dead — reviving isn't a
- *  top-up for a minion that's still standing. */
+/** A minion coming back — Willow's resurrect, or one of Yennenga's archers.
+ *  Unlike the open `updateCoinHealth` below, this is a character ability, so
+ *  it's held to one: whoever's asking must have a `minionReviveHealth` of
+ *  their own (nobody else's minions come back at all), it must be their own
+ *  minion, and it must actually be dead — reviving isn't a top-up for a
+ *  minion still standing. The character decides what it comes back on, so
+ *  Yennenga's archers return weaker than Willow's minion does. */
 function resurrectMinion(state: GameState, slot: PlayerSlot, minionIndex: number): void {
-  if (state.players[slot].characterId !== 'willow') {
+  const characterId = state.players[slot].characterId;
+  const reviveHealth = characterId ? getCharacterDef(characterId)?.minionReviveHealth : undefined;
+  if (reviveHealth === undefined) {
     return;
   }
   const coin = resolveCoin(state, slot, 'minion', minionIndex);
   if (!coin || coin.health > 0) {
     return;
   }
-  coin.health = RESURRECTED_MINION_HEALTH;
+  coin.health = reviveHealth;
   // Past the bails, so nothing is sounded on either screen for a resurrection
   // that didn't happen.
   state.players[slot].minionsResurrected += 1;

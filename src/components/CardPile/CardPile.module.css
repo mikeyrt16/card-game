@@ -12,10 +12,10 @@
    (95), the dialogs (100) or the dragged card (200). The whole pile has to
    rise instead, which it does only for as long as the menu is open.
 
-   Sharing the space above the draw pile is whichever character control is
-   docked there (Spike's/Willow's/Squirrel Girl's button) plus the drag-time
-   PileDropZone. Those sit at 45 and 55 — both under .pile's base 50 or above
-   it deliberately, so the ordering up there holds with or without this lift. */
+   Sharing the space above the draw pile are the docked character control
+   (CharacterActionButton) and the drag-time PileDropZone. Those sit at 45 and
+   55 — deliberately under .pile's base 50 and over it respectively, so the
+   ordering up there holds with or without this lift. */
 .pileMenuOpen {
   z-index: 300;
 }

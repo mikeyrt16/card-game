@@ -10,6 +10,13 @@ export interface CharacterDef {
   mainHealth: number;
   /** Starting health for each of this character's minion coins. */
   minionHealth: number;
+  /** What a minion of theirs comes back on when its own player revives it
+   *  (see `resurrectMinion`). Only set for the characters who can do that at
+   *  all — Willow's resurrect and Yennenga's archers — and its absence is
+   *  what tells the server everyone else's minions stay dead. Deliberately
+   *  separate from `minionHealth`: coming back is meant to be a reprieve, not
+   *  a reset to full. */
+  minionReviveHealth?: number;
 }
 
 export const CHARACTER_DEFS: CharacterDef[] = [
@@ -26,9 +33,11 @@ export const CHARACTER_DEFS: CharacterDef[] = [
   { id: 'genie', name: 'Genie', cards: genie, minionCount: 0, mainHealth: 16, minionHealth: 0 },
   { id: 'buffy', name: 'Buffy', cards: buffy, minionCount: 1, mainHealth: 14, minionHealth: 6 },
   { id: 'angel', name: 'Angel', cards: angel, minionCount: 1, mainHealth: 16, minionHealth: 8 },
-  { id: 'willow', name: 'Willow', cards: willow, minionCount: 1, mainHealth: 14, minionHealth: 6 },
+  { id: 'willow', name: 'Willow', cards: willow, minionCount: 1, mainHealth: 14, minionHealth: 6, minionReviveHealth: 3 },
   { id: 'spike', name: 'Spike', cards: spike, minionCount: 1, mainHealth: 15, minionHealth: 7 },
-  { id: 'yennenga', name: 'Yennenga', cards: yennenga, minionCount: 2, mainHealth: 15, minionHealth: 2 },
+  // Her two archers can be brought back as they fall, one per click of her own
+  // button, for as long as the game lasts — see the "Add archer" control.
+  { id: 'yennenga', name: 'Yennenga', cards: yennenga, minionCount: 2, mainHealth: 15, minionHealth: 2, minionReviveHealth: 2 },
   { id: 'achilles', name: 'Achilles', cards: achilles, minionCount: 1, mainHealth: 18, minionHealth: 6 },
   { id: 'bloodyMary', name: 'Bloody Mary', cards: bloodyMary, minionCount: 0, mainHealth: 16, minionHealth: 0 },
   { id: 'sunWukong', name: 'Sun Wukong', cards: sunWukong, minionCount: 3, mainHealth: 17, minionHealth: 1 },

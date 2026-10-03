@@ -76,11 +76,6 @@ export interface WireCard {
  *  many have been used. */
 export const SHADOW_TOKEN_LIMIT = 3;
 
-/** What Willow's minion comes back on, via `resurrectMinion` — deliberately
- *  well short of the 6 it starts the game with (see CHARACTER_DEFS), so a
- *  resurrection is a reprieve rather than a reset. */
-export const RESURRECTED_MINION_HEALTH = 3;
-
 /** How many squirrel minions Squirrel Girl gets for the whole game, one at a
  *  time via `spawnSquirrelMinion`. Unlike every other character, her
  *  CharacterDef.minionCount is 0 — she starts with none, and the server
@@ -176,12 +171,14 @@ export type GameAction =
    *  any player can trigger it — the client only offers the gesture (shift +
    *  click) when that character/coinType actually has alt art. */
   | { type: 'toggleCoinAltSide'; coinOwner: PlayerSlot; coinType: CoinType; minionIndex?: number }
-  /** Willow bringing her own fallen minion back, on
-   *  `RESURRECTED_MINION_HEALTH`. Only the sender's own minion, only Willow's,
-   *  and only one that's actually dead — a no-op otherwise. Distinct from
+  /** Bringing one of the sender's own fallen minions back — Willow's
+   *  resurrect, or one of Yennenga's archers. Only their own minion, only one
+   *  that's actually dead, and only for a character who has a
+   *  `CharacterDef.minionReviveHealth` at all; a no-op otherwise, and that def
+   *  is also what decides the health it returns on. Distinct from
    *  `updateCoinHealth` (which could express the same change) because it's a
-   *  specific move by a specific character, which lets the server hold it to
-   *  those rules and lets both clients sound it. */
+   *  character ability, which lets the server hold it to those rules and lets
+   *  both clients sound it. */
   | { type: 'resurrectMinion'; minionIndex: number }
   /** Squirrel Girl adding one more squirrel minion, at 1 health, up to
    *  `SQUIRREL_GIRL_MINION_LIMIT` for the whole game. Squirrel Girl's own, so

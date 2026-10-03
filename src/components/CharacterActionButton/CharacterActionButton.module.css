@@ -1,8 +1,7 @@
-/* Sits above the player's own draw pile, the same spot Spike's shadow-token
-   button and Willow's resurrect button take (CardPile's .placementDraw: left
-   32px, width 110px, bottom 20px, ~154px tall) — centred on that 110px pile,
-   clearing its top edge by 28px. Only one of the three is ever on screen at
-   once, since a player only has the one character. */
+/* Sits above the player's own draw pile (CardPile's .placementDraw: left 32px,
+   width 110px, bottom 20px, ~154px tall) — centred on that 110px pile, clearing
+   its top edge by 28px. Only ever one of these on screen at a time, since a
+   player only has the one character. */
 .button {
   position: fixed;
   left: 32px;
@@ -22,14 +21,13 @@
      drag-time drop zone (55), which starts at this exact same bottom: 202px,
      and the View/Shuffle hover menu, which opens into the gap just above the
      pile. Deliberately not a tie with the piles (50) either: on equal z-index
-     the later element in the DOM wins, and these character buttons render
-     after the draw pile. Nothing is lost by sitting low — the piles
-     themselves stop ~28px below this. */
+     the later element in the DOM wins, and this renders after the draw pile.
+     Nothing is lost by sitting low — the piles themselves stop ~28px below. */
   z-index: 45;
 }
 
 /* --glow-rgb is set inline, from the same per-character palette the coins'
-   own glow uses — matching Spike's and Willow's own buttons. */
+   own glow uses, so a character's control glows in their colour. */
 .button:hover {
   background: rgba(30, 30, 30, 0.9);
   box-shadow: 0 0 0 3px rgb(var(--glow-rgb) / 60%), 0 0 22px 8px rgb(var(--glow-rgb) / 65%);

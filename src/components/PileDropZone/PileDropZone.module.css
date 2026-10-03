@@ -8,13 +8,13 @@
   border-radius: 12px;
   overflow: hidden;
   background: #111;
-  /* Above the character controls docked over the draw pile (Spike's shadow
-     token, Willow's resurrect, Squirrel Girl's squirrel — all 45) and the
-     piles themselves (50). Those buttons start at this very same bottom:
-     202px and are slightly wider than this zone, so they land right on top of
-     the bottom band: under them, "Bottom" was both hidden and unable to take
-     the drop, since a button is no kind of drop target. This only exists
-     mid-drag, so there's nothing it needs to stay out of the way of. */
+  /* Above the character control docked over the draw pile (see
+     CharacterActionButton, 45) and the piles themselves (50). That button
+     starts at this very same bottom: 202px and is slightly wider than this
+     zone, so it lands right on top of the bottom band — underneath it,
+     "Bottom" was both hidden and unable to take the drop, a button being no
+     kind of drop target. This only exists mid-drag, so there's nothing it
+     needs to stay out of the way of. */
   z-index: 55;
 }
 
