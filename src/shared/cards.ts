@@ -775,7 +775,7 @@ export const bloodyMary: CardDefinition[] = [
   },
   {
     "amount": 3,
-    "image": "tricker-of-the-light"
+    "image": "trick-of-the-light"
   },
 ]
 

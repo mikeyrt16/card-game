@@ -4,13 +4,34 @@ const TOKEN_KEY = 'card-game:player-token';
 const MAX_RECONNECT_DELAY_MS = 5000;
 const INITIAL_RECONNECT_DELAY_MS = 500;
 
+/** A fresh player token.
+ *
+ *  `crypto.randomUUID()` only exists in a secure context — https, or
+ *  localhost, which browsers trust as a special case. Opening the game over
+ *  the network instead (http://<this machine's address>:5173, the LAN link)
+ *  is *not* a secure context, so there it's simply undefined and calling it
+ *  throws. `crypto.getRandomValues` has no such restriction, so it stands in:
+ *  same randomness, assembled into a v4 UUID by hand. */
+function createToken(): string {
+  if (typeof crypto.randomUUID === 'function') {
+    return crypto.randomUUID();
+  }
+  const bytes = crypto.getRandomValues(new Uint8Array(16));
+  // The two fields a v4 UUID pins: version 4 in the high nibble of byte 6,
+  // and variant 1 (0b10) in the top bits of byte 8.
+  bytes[6] = (bytes[6] & 0x0f) | 0x40;
+  bytes[8] = (bytes[8] & 0x3f) | 0x80;
+  const hex = Array.from(bytes, (byte) => byte.toString(16).padStart(2, '0')).join('');
+  return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20)}`;
+}
+
 function getToken(): string {
   // sessionStorage (not localStorage) so each browser tab gets its own
   // player identity — lets two tabs in the same browser act as the two
   // players, while a refresh within a tab still reclaims the same slot.
   let token = sessionStorage.getItem(TOKEN_KEY);
   if (!token) {
-    token = crypto.randomUUID();
+    token = createToken();
     sessionStorage.setItem(TOKEN_KEY, token);
   }
   return token;
