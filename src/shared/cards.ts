@@ -621,3 +621,211 @@ export const spike: CardDefinition[] = [
     "image": "the-sight"
   },
 ];
+
+export const yennenga: CardDefinition[] = [
+  {
+    "amount": 2,
+    "image": "divide-and-conquer"
+  },
+  {
+    "amount": 3,
+    "image": "jaws-of-the-beast"
+  },
+  {
+    "amount": 2,
+    "image": "master-of-the-hunt"
+  },
+  {
+    "amount": 3,
+    "image": "momentous-shift"
+  },
+  {
+    "amount": 2,
+    "image": "one-with-the-land"
+  },
+  {
+    "amount": 2,
+    "image": "pin-the-prey"
+  },
+  {
+    "amount": 3,
+    "image": "point-blank"
+  },
+  {
+    "amount": 3,
+    "image": "rain-of-arrows"
+  },
+  {
+    "amount": 2,
+    "image": "shield-formation"
+  },
+  {
+    "amount": 2,
+    "image": "skirmish"
+  },
+  {
+    "amount": 3,
+    "image": "stallion-charge"
+  },
+  {
+    "amount": 3,
+    "image": "surprise-volley"
+  },
+]
+
+export const achilles: CardDefinition[] = [
+  {
+    "amount": 3,
+    "image": "achilles-heel"
+  },
+  {
+    "amount": 2,
+    "image": "battle-frenzy"
+  },
+  {
+    "amount": 2,
+    "image": "battle-hardened"
+  },
+  {
+    "amount": 2,
+    "image": "blessed-by-hermes"
+  },
+  {
+    "amount": 3,
+    "image": "brothers-in-arms"
+  },
+  {
+    "amount": 3,
+    "image": "feint"
+  },
+  {
+    "amount": 3,
+    "image": "skirmish"
+  },
+  {
+    "amount": 2,
+    "image": "spear-throw"
+  },
+  {
+    "amount": 3,
+    "image": "test-for-weakness"
+  },
+  {
+    "amount": 2,
+    "image": "the-day-of-your-doom"
+  },
+  {
+    "amount": 3,
+    "image": "under-achilles-helm"
+  },
+  {
+    "amount": 2,
+    "image": "wily-fighting"
+  },
+]
+
+export const bloodyMary: CardDefinition[] = [
+  {
+    "amount": 3,
+    "image": "bloody-requiem"
+  },
+  {
+    "amount": 3,
+    "image": "broken-glass"
+  },
+  {
+    "amount": 2,
+    "image": "closer-than-she-appears"
+  },
+  {
+    "amount": 3,
+    "image": "evade"
+  },
+  {
+    "amount": 2,
+    "image": "feint"
+  },
+  {
+    "amount": 2,
+    "image": "ghostly-touch"
+  },
+  {
+    "amount": 2,
+    "image": "infinity-mirror"
+  },
+  {
+    "amount": 2,
+    "image": "jump-scare"
+  },
+  {
+    "amount": 2,
+    "image": "mirror-image"
+  },
+  {
+    "amount": 2,
+    "image": "out-of-the-mirror"
+  },
+  {
+    "amount": 2,
+    "image": "speak-three-times"
+  },
+  {
+    "amount": 2,
+    "image": "stolen-memories"
+  },
+  {
+    "amount": 3,
+    "image": "tricker-of-the-light"
+  },
+]
+
+export const sunWukong: CardDefinition[] = [
+  {
+    "amount": 2,
+    "image": "bewilderment"
+  },
+  {
+    "amount": 2,
+    "image": "fiery-eyes-that-see"
+  },
+  {
+    "amount": 2,
+    "image": "golden-chain-mail"
+  },
+  {
+    "amount": 3,
+    "image": "infinite-strikes"
+  },
+  {
+    "amount": 2,
+    "image": "ox-form"
+  },
+  {
+    "amount": 1,
+    "image": "phoenix-form"
+  },
+  {
+    "amount": 3,
+    "image": "ruyi-jungo-bang"
+  },
+  {
+    "amount": 4,
+    "image": "sly-monkey"
+  },
+  {
+    "amount": 3,
+    "image": "taunting-laughter"
+  },
+  {
+    "amount": 2,
+    "image": "tortoise-form"
+  },
+  {
+    "amount": 3,
+    "image": "transformations"
+  },
+  {
+    "amount": 3,
+    "image": "wily-fighting"
+  },
+]

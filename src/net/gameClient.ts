@@ -18,7 +18,18 @@ function getToken(): string {
 
 function getServerUrl(): string {
   const configured = import.meta.env.VITE_WS_URL as string | undefined;
-  return configured || `ws://${window.location.hostname}:8787`;
+  if (configured) {
+    return configured;
+  }
+  // The same origin the page itself came from, via the dev server's /ws proxy
+  // (see vite.config.ts), rather than straight to the game server's own port.
+  // One address then covers every way the game gets opened — localhost, this
+  // machine's address on the network, or a public tunnel, where port 8787 is
+  // not exposed at all and an https page may not open a plain ws:// socket.
+  // Serving the built app without Vite in front of it is the one case this
+  // doesn't cover; set VITE_WS_URL to the game server's address for that.
+  const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+  return `${protocol}//${window.location.host}/ws`;
 }
 
 export type ConnectionStatus = 'connecting' | 'open' | 'closed';

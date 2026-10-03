@@ -14,6 +14,10 @@ const CHARACTER_COLORS: Record<string, string> = {
   angel: '#EECC40',
   willow: '#4fd1c5',
   spike: '#424cc2',
+  yennenga: '#2880bf',
+  achilles: '#c26f55',
+  bloodyMary: '#DB2525',
+  sunWukong: '#F1C933',
 };
 const DEFAULT_COLOR = '#FFD54A';
 
