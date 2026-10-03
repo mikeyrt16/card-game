@@ -37,7 +37,8 @@ import { characterGlowRgb } from '../data/characterColors';
 import { getCharacter, type Character } from '../data/characters';
 import { MAPS, type MapInfo } from '../data/maps';
 import { useGameConnection } from '../net/GameConnectionProvider';
-import { SHADOW_TOKEN_LIMIT, SQUIRREL_GIRL_MINION_LIMIT } from '../shared/protocol';
+import { getCharacterDef } from '../shared/characters';
+import { SHADOW_TOKEN_LIMIT } from '../shared/protocol';
 import type { GameAction, GameStateView, PlayerSlot, WireCard } from '../shared/protocol';
 import styles from './GameRoute.module.css';
 
@@ -381,9 +382,12 @@ function Game({ state, character, map, send }: GameProps) {
   const deadMinionIndex = myMinions.findIndex((minion) => minion.health <= 0);
   const deadMinionCount = myMinions.filter((minion) => minion.health <= 0).length;
 
-  // How many squirrel minions Squirrel Girl has spawned so far — what her own
-  // button counts down against and disappears at (see SQUIRREL_GIRL_MINION_LIMIT).
-  const mySquirrelMinionCount = myMinions.length;
+  // For the characters who conjure their own minions (Squirrel Girl, Sun
+  // Wukong), how many they have left to spawn — what their button counts down
+  // and disappears at. Nothing removes a spawned minion, so the coins they
+  // have on the board are exactly the ones they've spent.
+  const spawnableMinionLimit = getCharacterDef(character.id)?.spawnableMinionLimit ?? 0;
+  const spawnableMinionsLeft = Math.max(0, spawnableMinionLimit - myMinions.length);
 
   // The count as it stood when this board came on screen. CatDance animates on
   // being mounted, so without a baseline every dance already on the tally
@@ -556,14 +560,25 @@ function Game({ state, character, map, send }: GameProps) {
       {/* Squirrel Girl's counts down as she spawns: nothing removes a spawned
           minion, so — like the shadow tokens — her own coin count is exactly
           how many she's used, and it disappears once they're all out. */}
-      {character.id === 'squirrelGirl' && mySquirrelMinionCount < SQUIRREL_GIRL_MINION_LIMIT && (
+      {character.id === 'squirrelGirl' && spawnableMinionsLeft > 0 && (
         <CharacterActionButton
           characterId="squirrelGirl"
-          label={`Squirrel (${SQUIRREL_GIRL_MINION_LIMIT - mySquirrelMinionCount})`}
+          label={`Squirrel (${spawnableMinionsLeft})`}
           onClick={() => {
             playSquirrelSqueakSound();
-            send({ type: 'spawnSquirrelMinion' });
+            send({ type: 'spawnMinion' });
           }}
+        />
+      )}
+      {/* Sun Wukong's works the same way as Squirrel Girl's — the same action,
+          just a smaller allowance — except each clone is torn off himself, so
+          the server also docks his main coin a point of health (see
+          minionSpawnSelfDamage) and both screens see the damage float off him. */}
+      {character.id === 'sunWukong' && spawnableMinionsLeft > 0 && (
+        <CharacterActionButton
+          characterId="sunWukong"
+          label={`Add clone (x${spawnableMinionsLeft})`}
+          onClick={() => send({ type: 'spawnMinion' })}
         />
       )}
       {/* Yennenga's counts her *fallen* archers rather than a dwindling

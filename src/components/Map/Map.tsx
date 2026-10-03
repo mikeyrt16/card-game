@@ -558,9 +558,9 @@ export function Map({
               minionIndex !== undefined && playerCoins.minions.length > 1 ? `minion ${minionIndex + 1}` : coinType;
             const hasAlt = hasCoinAltImage(characterId, coinType);
             // Squirrel Girl's minions render at half size — she can end up
-            // with up to SQUIRREL_GIRL_MINION_LIMIT of them, unlike every
-            // other character's one or few, so they read as a swarm rather
-            // than crowding the board at full coin size.
+            // with eight of them on the board (see her spawnableMinionLimit),
+            // unlike every other character's one or few, so they read as a
+            // swarm rather than crowding the board at full coin size.
             const isSmall = coinType === 'minion' && characterId === 'squirrelGirl';
             const key = coinKey(owner, coinType, minionIndex);
             // Shown only for an edit made since this board came on screen. A

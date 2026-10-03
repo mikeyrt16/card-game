@@ -76,16 +76,6 @@ export interface WireCard {
  *  many have been used. */
 export const SHADOW_TOKEN_LIMIT = 3;
 
-/** How many squirrel minions Squirrel Girl gets for the whole game, one at a
- *  time via `spawnSquirrelMinion`. Unlike every other character, her
- *  CharacterDef.minionCount is 0 — she starts with none, and the server
- *  enforces this as the cap on how many the button can add; the client reads
- *  it to count down the button's label and hide it once she's spawned them
- *  all. Since nothing removes a spawned minion, coins.minions.length is
- *  exactly how many she's used, the same way SHADOW_TOKEN_LIMIT works off
- *  darkness.length. */
-export const SQUIRREL_GIRL_MINION_LIMIT = 8;
-
 /** How long the cat dance stays on screen. The server holds off any further
  *  trigger for this long (so it can't be restarted or stacked while it's
  *  playing), and the client runs its show-then-hide animation over exactly the
@@ -180,10 +170,13 @@ export type GameAction =
    *  character ability, which lets the server hold it to those rules and lets
    *  both clients sound it. */
   | { type: 'resurrectMinion'; minionIndex: number }
-  /** Squirrel Girl adding one more squirrel minion, at 1 health, up to
-   *  `SQUIRREL_GIRL_MINION_LIMIT` for the whole game. Squirrel Girl's own, so
-   *  a no-op from anyone else — and a no-op once she's spawned the limit. */
-  | { type: 'spawnSquirrelMinion' }
+  /** Putting one more of the sender's own minions on the board — Squirrel
+   *  Girl's squirrels, Sun Wukong's clones. Only for a character with a
+   *  `CharacterDef.spawnableMinionLimit`, and only until they've spawned that
+   *  many; a no-op otherwise. That def also sets what it arrives on
+   *  (`minionHealth`) and what the main coin pays for it
+   *  (`minionSpawnSelfDamage`). */
+  | { type: 'spawnMinion' }
   /** Shift + C from either player: puts the dancing cat up on both screens.
    *  A no-op while one is already playing — the server holds the gate, so two
    *  players hitting it at once still get the one dance. */

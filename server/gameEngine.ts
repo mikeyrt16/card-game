@@ -1,5 +1,5 @@
 import { getCharacterDef } from '../src/shared/characters';
-import { CAT_DANCE_MS, SHADOW_TOKEN_LIMIT, SQUIRREL_GIRL_MINION_LIMIT } from '../src/shared/protocol';
+import { CAT_DANCE_MS, SHADOW_TOKEN_LIMIT } from '../src/shared/protocol';
 import type {
   BoardCardView,
   CoinState,
@@ -136,21 +136,25 @@ function createMinionCoins(x: number, count: number, health: number): CoinState[
 }
 
 /** How far out (in the same map-percentage units everything else here uses)
- *  a spawned squirrel minion lands from Squirrel Girl's main coin. */
-const SQUIRREL_SPAWN_RADIUS = 8;
+ *  a spawned minion lands from its owner's main coin. */
+const MINION_SPAWN_RADIUS = 8;
 
-/** Where the `index`-th (of up to SQUIRREL_GIRL_MINION_LIMIT) squirrel minion
- *  spawns: near the main coin's own *current* position — wherever it's
- *  actually been dragged to, not its original starting spot — rather than
- *  the fixed vertical fan `minionCoinPosition` lays other characters'
- *  pre-placed minions out in. Evenly spaced around it in a ring, one slot
- *  per eventual minion (360° / the limit), so all eight end up spaced out
- *  round the coin instead of piling on the same point. */
-function squirrelMinionSpawnPosition(main: { x: number; y: number }, index: number): { x: number; y: number } {
-  const angle = (index / SQUIRREL_GIRL_MINION_LIMIT) * 2 * Math.PI;
+/** Where the `index`-th of `total` spawned minions goes (see `spawnMinion`):
+ *  near the main coin's own *current* position — wherever it's actually been
+ *  dragged to, not its original starting spot — rather than the fixed vertical
+ *  fan `minionCoinPosition` lays other characters' pre-placed minions out in.
+ *  Evenly spaced around it in a ring, one slot per minion the character will
+ *  ever have (360° / their limit), so they end up spread round the coin
+ *  instead of piling on the same point. */
+function spawnedMinionPosition(
+  main: { x: number; y: number },
+  index: number,
+  total: number,
+): { x: number; y: number } {
+  const angle = (index / total) * 2 * Math.PI;
   return {
-    x: Math.max(0, Math.min(100, main.x + SQUIRREL_SPAWN_RADIUS * Math.cos(angle))),
-    y: Math.max(0, Math.min(100, main.y + SQUIRREL_SPAWN_RADIUS * Math.sin(angle))),
+    x: Math.max(0, Math.min(100, main.x + MINION_SPAWN_RADIUS * Math.cos(angle))),
+    y: Math.max(0, Math.min(100, main.y + MINION_SPAWN_RADIUS * Math.sin(angle))),
   };
 }
 
@@ -477,24 +481,52 @@ function resurrectMinion(state: GameState, slot: PlayerSlot, minionIndex: number
   state.players[slot].minionsResurrected += 1;
 }
 
-/** Squirrel Girl adding one more squirrel minion. Squirrel Girl only, and
- *  only up to SQUIRREL_GIRL_MINION_LIMIT for the whole game — past that this
- *  is a no-op, same as the shadow tokens once Spike's spent his three. The
- *  new coin lands in its own slot of the ring around the main coin's current
- *  position (computed against the limit, not the current count), so earlier
- *  minions that have since been dragged elsewhere aren't reshuffled by a
- *  later spawn. */
-function spawnSquirrelMinion(state: GameState, slot: PlayerSlot): void {
-  if (state.players[slot].characterId !== 'squirrelGirl') {
+/** Putting one more of this player's own minions on the board — Squirrel
+ *  Girl's squirrels, Sun Wukong's clones. Held to the character: they need a
+ *  `spawnableMinionLimit` of their own, and they stop at it, past which this
+ *  is a no-op, the same as the shadow tokens once Spike's spent his three.
+ *  Since nothing removes a spawned minion, the array's own length is the count
+ *  of what they've used.
+ *
+ *  The new coin lands in its own slot of the ring around the main coin's
+ *  current position (computed against the limit, not the current count), so
+ *  earlier minions that have since been dragged elsewhere aren't reshuffled by
+ *  a later spawn.
+ *
+ *  Where the character pays for it — Sun Wukong tearing a clone off himself —
+ *  the main coin takes that damage here, through applyHealthChange, so both
+ *  screens float the number off him as the clone appears. */
+function spawnMinion(state: GameState, slot: PlayerSlot): void {
+  const characterId = state.players[slot].characterId;
+  const def = characterId ? getCharacterDef(characterId) : undefined;
+  const limit = def?.spawnableMinionLimit;
+  if (!def || limit === undefined) {
     return;
   }
   const coins = state.coins[slot];
-  if (coins.minions.length >= SQUIRREL_GIRL_MINION_LIMIT) {
+  if (coins.minions.length >= limit) {
     return;
   }
-  const health = getCharacterDef('squirrelGirl')?.minionHealth ?? 1;
-  const position = squirrelMinionSpawnPosition(coins.main, coins.minions.length);
-  coins.minions = [...coins.minions, createCoin(position.x, position.y, health)];
+  const position = spawnedMinionPosition(coins.main, coins.minions.length, limit);
+  coins.minions = [...coins.minions, createCoin(position.x, position.y, def.minionHealth)];
+  if (def.minionSpawnSelfDamage) {
+    applyHealthChange(coins.main, coins.main.health - def.minionSpawnSelfDamage);
+  }
+}
+
+/** Moves a coin's health, recording the change so both clients float the
+ *  arcade number off it (red down, green up — see `CoinState`). The count is
+ *  what marks this as a fresh change rather than a rebroadcast of the last
+ *  one, so it has to climb on every call.
+ *
+ *  Anything that changes health as part of a *game move* goes through here —
+ *  the health dialog, and Sun Wukong paying for a clone — so the number shows
+ *  either way. Setup that merely establishes starting health (createCoin,
+ *  selectCharacter) deliberately doesn't: there's no change to show. */
+function applyHealthChange(coin: CoinState, next: number): void {
+  coin.healthEditDelta = next - coin.health;
+  coin.healthEditCount += 1;
+  coin.health = next;
 }
 
 /** Like coin dragging, anyone can edit any coin's health — it's a shared HP
@@ -531,11 +563,7 @@ function updateCoinHealth(
   } else {
     state.players[actorSlot].coinsHit += 1;
   }
-  // What the floating number over the coin reads, and what marks it as a fresh
-  // edit rather than a rebroadcast of this one — see `CoinState`.
-  coin.healthEditDelta = next - coin.health;
-  coin.healthEditCount += 1;
-  coin.health = next;
+  applyHealthChange(coin, next);
 }
 
 /** Like coin dragging/health, any player can flip a coin's face — the
@@ -682,8 +710,8 @@ export function applyAction(state: GameState, slot: PlayerSlot, action: GameActi
     case 'resurrectMinion':
       resurrectMinion(state, slot, action.minionIndex);
       return;
-    case 'spawnSquirrelMinion':
-      spawnSquirrelMinion(state, slot);
+    case 'spawnMinion':
+      spawnMinion(state, slot);
       return;
     case 'startCatDance': {
       // Held here rather than on each client so the gate is one gate: two

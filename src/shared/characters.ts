@@ -17,6 +17,16 @@ export interface CharacterDef {
    *  separate from `minionHealth`: coming back is meant to be a reprieve, not
    *  a reset to full. */
   minionReviveHealth?: number;
+  /** How many minions this character can put on the board themselves, one per
+   *  click of their own control (see `spawnMinion`) — Squirrel Girl's
+   *  squirrels and Sun Wukong's clones. Its absence is what tells the server
+   *  everyone else can't conjure minions at all. These characters have a
+   *  `minionCount` of 0, since they start with none and spawn them instead,
+   *  and each one spawned arrives on `minionHealth`. */
+  spawnableMinionLimit?: number;
+  /** What the main coin pays, in health, for each minion spawned — Sun Wukong
+   *  tears his clones off himself. Absent for anyone who spawns them free. */
+  minionSpawnSelfDamage?: number;
 }
 
 export const CHARACTER_DEFS: CharacterDef[] = [
@@ -24,11 +34,9 @@ export const CHARACTER_DEFS: CharacterDef[] = [
   { id: 'alice', name: 'Alice', cards: alice, minionCount: 1, mainHealth: 13, minionHealth: 8 },
   { id: 'medusa', name: 'Medusa', cards: medusa, minionCount: 3, mainHealth: 16, minionHealth: 1 },
   { id: 'sinbad', name: 'Sinbad', cards: sinbad, minionCount: 1, mainHealth: 15, minionHealth: 6 },
-  // Unlike every other character, her minions aren't pre-placed: she starts
-  // with none and spawns up to SQUIRREL_GIRL_MINION_LIMIT one at a time via
-  // her own button (see spawnSquirrelMinion). minionHealth still applies to
-  // each one spawned.
-  { id: 'squirrelGirl', name: 'Squirrel Girl', cards: squirrelGirl, minionCount: 0, mainHealth: 13, minionHealth: 1 },
+  // Her minions aren't pre-placed: she starts with none and spawns them one at
+  // a time from her own button, free — see spawnableMinionLimit.
+  { id: 'squirrelGirl', name: 'Squirrel Girl', cards: squirrelGirl, minionCount: 0, mainHealth: 13, minionHealth: 1, spawnableMinionLimit: 8 },
   { id: 'houdini', name: 'Houdini', cards: houdini, minionCount: 1, mainHealth: 14, minionHealth: 5 },
   { id: 'genie', name: 'Genie', cards: genie, minionCount: 0, mainHealth: 16, minionHealth: 0 },
   { id: 'buffy', name: 'Buffy', cards: buffy, minionCount: 1, mainHealth: 14, minionHealth: 6 },
@@ -40,7 +48,9 @@ export const CHARACTER_DEFS: CharacterDef[] = [
   { id: 'yennenga', name: 'Yennenga', cards: yennenga, minionCount: 2, mainHealth: 15, minionHealth: 2, minionReviveHealth: 2 },
   { id: 'achilles', name: 'Achilles', cards: achilles, minionCount: 1, mainHealth: 18, minionHealth: 6 },
   { id: 'bloodyMary', name: 'Bloody Mary', cards: bloodyMary, minionCount: 0, mainHealth: 16, minionHealth: 0 },
-  { id: 'sunWukong', name: 'Sun Wukong', cards: sunWukong, minionCount: 3, mainHealth: 17, minionHealth: 1 },
+  // Like Squirrel Girl he starts with no minions and spawns them, but his
+  // clones are torn off himself: each costs his main coin a point of health.
+  { id: 'sunWukong', name: 'Sun Wukong', cards: sunWukong, minionCount: 0, mainHealth: 17, minionHealth: 1, spawnableMinionLimit: 3, minionSpawnSelfDamage: 1 },
 ];
 
 export function getCharacterDef(id: string): CharacterDef | undefined {
